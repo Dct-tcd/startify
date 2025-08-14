@@ -26,7 +26,7 @@ import './App.css'
            <main className="flex-1 p-4 overflow-auto">
              <Routes>
                <Route path="/" element={<HomePage />} />
-               <Route path="/testcase-gen" element={<TestCaseGen />} />
+               <Route path="/test-case-gen" element={<TestCaseGen />} />
                <Route path="/bug-fixer" element={<BugFixer />} />
                <Route path="/automation-writer" element={<AutomationWriter />} />
                <Route path="/test-data" element={<TestDataGen />} />
