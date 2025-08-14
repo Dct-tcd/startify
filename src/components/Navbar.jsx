@@ -9,9 +9,7 @@ export default function Navbar({ onToggleSidebar }) {
             <Menu size={20} />
           </button>
           <div className="font-semibold tracking-tight">
-            <span className="text-white">Codifai</span>
-            <span className="mx-2 text-white/40">|</span>
-            <span className="text-white">Verifai</span>
+            <span className="text-white">Ansari Fai</span>
           </div>
         </div>
 

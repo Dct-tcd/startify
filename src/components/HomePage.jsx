@@ -18,7 +18,7 @@ export default function HomePage() {
   return (
     <>
       <div className="mb-6">
-        <h1>Codifai | Verifai Dashboard</h1>
+        <h1>AnsariFai Dashboard</h1>
         <p className="mt-2 text-slate-600 bg-grey-800">
           Pick a tool to start. You can collapse the sidebar on mobile with the menu button.
         </p>
