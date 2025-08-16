@@ -4,7 +4,7 @@ import './App.css'
  import Sidebar from "./components/Sidebar";
  import TestCaseGen from "./pages/TestCaseGen";
  import BugFixer from "./pages/BugFixer";
- import AutomationWriter from "./pages/AutomationWriter";
+//  import AutomationWriter from "./pages/AutomationWriter";
  import TestDataGen from "./pages/TestDataGen";
  import CodeMigration from "./pages/CodeMigration";
  import CodeOptimisation from "./pages/CodeOptimisation";
@@ -28,7 +28,7 @@ import './App.css'
                <Route path="/" element={<HomePage />} />
                <Route path="/test-case-gen" element={<TestCaseGen />} />
                <Route path="/bug-fixer" element={<BugFixer />} />
-               <Route path="/automation-writer" element={<AutomationWriter />} />
+               {/* <Route path="/automation-writer" element={<AutomationWriter />} /> */}
                <Route path="/test-data" element={<TestDataGen />} />
                <Route path="/code-migration" element={<CodeMigration />} />
                <Route path="/code-optimisation" element={<CodeOptimisation />} />

@@ -8,7 +8,7 @@ const links = [
   { to: "/", label: "Dashboard", icon: PanelsTopLeft },
   { to: "/test-case-gen", label: "Test Case Gen", icon: CheckSquare },
   { to: "/bug-fixer", label: "Bug Finder & Fixer", icon: Bug },
-  { to: "/automation-writer", label: "Automation Writer", icon: Wand2 },
+  // { to: "/automation-writer", label: "Automation Writer", icon: Wand2 },
   { to: "/test-data", label: "Test Data Gen", icon: Database },
   { to: "/code-migration", label: "Code Migration", icon: MoveRight },
   { to: "/code-optimisation", label: "Code Optimisation", icon: ShieldCheck },
@@ -28,11 +28,11 @@ export default function Sidebar({ open, onClose }) {
         />
       )}
 
-      <aside className={`fixed z-40 inset-y-0 left-0 w-64 bg-white border-r border-slate-200
+      <aside className={`fixed z-40 inset-y-0 left-0 w-64 bg-gray-900 border-r border-gray-800
         transform transition-transform duration-200 ease-out
         ${open ? "translate-x-0" : "-translate-x-full"} md:translate-x-0`}>
 
-        <div className="h-14 border-b border-slate-200 px-4 flex items-center text-slate-900 font-semibold">
+        <div className="h-14 border-b border-gray-800 px-4 flex items-center text-gray-100 font-semibold">
           Tools
         </div>
 
