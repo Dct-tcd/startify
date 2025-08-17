@@ -8,10 +8,6 @@ export default function Navbar({ onToggleSidebar }) {
           <button onClick={onToggleSidebar} className="md:hidden btn btn-ghost text-gray-100/90">
             <Menu size={20} />
           </button>
-          {/* <div className="font-semibold tracking-tight">
-            <span className="text-gray-100">DEVRI-AI</span>
-          </div> */}
-
           <svg xmlns="http://www.w3.org/2000/svg" width="240" height="60" viewBox="0 0 240 60">
 <circle cx="25" cy="30" r="22" fill="#0284C7"/>
 <text x="25" y="35" font-size="22" text-anchor="middle" fill="white">🧠</text>
