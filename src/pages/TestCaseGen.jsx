@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { createClient } from "@supabase/supabase-js";
 import Editor from "@monaco-editor/react";
@@ -7,7 +6,6 @@ const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
-
 const languageMap = {
   JavaScript: "javascript",
   TypeScript: "typescript",
@@ -15,10 +13,7 @@ const languageMap = {
   Java: "java",
   "C#": "csharp",
   Go: "go",
-  JSON: "json",
 };
-
-
 
 export default function TestCaseGen() {
   const [language, setLanguage] = useState("JavaScript");
@@ -27,6 +22,7 @@ export default function TestCaseGen() {
   const [response, setResponse] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [err, setErr] = useState("");
+  const [copied, setCopied] = useState(false);
 
   const normalizeCode = (code) => {
     if (!code || typeof code !== "string") return "";
@@ -47,24 +43,16 @@ export default function TestCaseGen() {
       });
       if (error) throw error;
 
-      let code = data?.testCases;
+      let cases = data?.testCases;
 
-      // 🔑 Format always as JSON string
-      if (Array.isArray(code)) {
-        code = JSON.stringify({ testCases: code }, null, 2);
-      } else if (typeof code === "string") {
-        try {
-          // ensure valid JSON if string looks like JSON
-          const parsed = JSON.parse(code);
-          code = JSON.stringify(parsed, null, 2);
-        } catch {
-          code = JSON.stringify({ testCases: [String(code || "")] }, null, 2);
-        }
-      } else {
-        code = JSON.stringify({ testCases: [] }, null, 2);
+      // Ensure array
+      if (!Array.isArray(cases)) {
+        cases = [String(cases || "")];
       }
 
-      setResponse(normalizeCode(code));
+      // Join into one block
+      const joined = cases.join("\n\n");
+      setResponse(normalizeCode(joined));
     } catch (e) {
       setErr(e.message || "Something went wrong");
     } finally {
@@ -76,6 +64,17 @@ export default function TestCaseGen() {
     setInputCode("");
     setResponse("");
     setErr("");
+  };
+
+  const handleCopy = async () => {
+    if (!response) return;
+    try {
+      await navigator.clipboard.writeText(response);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      setErr("Failed to copy code.");
+    }
   };
 
   return (
@@ -95,7 +94,7 @@ export default function TestCaseGen() {
             <select
               className="w-40 rounded-md border border-gray-700 bg-gray-800 px-2 py-1 text-sm text-gray-100 shadow-sm outline-none focus:ring-2 focus:ring-sky-500"
               value={language}
-              onChange={e => setLanguage(e.target.value)}
+              onChange={(e) => setLanguage(e.target.value)}
             >
               <option>JavaScript</option>
               <option>TypeScript</option>
@@ -112,7 +111,7 @@ export default function TestCaseGen() {
             <select
               className="w-40 rounded-md border border-gray-700 bg-gray-800 px-2 py-1 text-sm text-gray-100 shadow-sm outline-none focus:ring-2 focus:ring-sky-500"
               value={model}
-              onChange={e => setModel(e.target.value)}
+              onChange={(e) => setModel(e.target.value)}
             >
               <option value="gpt-4o">GPT-4o</option>
               <option value="gpt-4o-mini">GPT-4o Mini</option>
@@ -145,12 +144,14 @@ export default function TestCaseGen() {
           </div>
         )}
 
-        {/* Panels with fixed width */}
+        {/* Panels */}
         <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
           {/* Input */}
           <div className="mx-auto w-full max-w-[600px] flex h-[70vh] min-h-[420px] flex-col overflow-hidden rounded-2xl border border-gray-700 bg-gray-800 shadow">
             <div className="border-b border-gray-700 px-4 py-3">
-              <h2 className="text-sm font-semibold text-gray-200">Input Code</h2>
+              <h2 className="text-sm font-semibold text-gray-200">
+                Input Code
+              </h2>
             </div>
             <div className="flex-1 min-h-0">
               <Editor
@@ -158,7 +159,7 @@ export default function TestCaseGen() {
                 language={languageMap[language]}
                 value={inputCode}
                 key={language}
-                onChange={val => setInputCode(val || "")}
+                onChange={(val) => setInputCode(val || "")}
                 theme="vs-dark"
                 options={{
                   minimap: { enabled: false },
@@ -169,16 +170,27 @@ export default function TestCaseGen() {
               />
             </div>
           </div>
+
           {/* Output */}
           <div className="mx-auto w-full max-w-[600px] flex h-[70vh] min-h-[420px] flex-col overflow-hidden rounded-2xl border border-gray-700 bg-gray-800 shadow">
             <div className="flex items-center justify-between border-b border-gray-700 px-4 py-3">
-              <h2 className="text-sm font-semibold text-gray-200">Generated Test Cases</h2>
+              <h2 className="text-sm font-semibold text-gray-200">
+                Generated Test Cases
+              </h2>
+              {response && (
+                <button
+                  onClick={handleCopy}
+                  className="rounded bg-gray-700 px-2 py-1 text-xs text-gray-200 hover:bg-gray-600"
+                >
+                  {copied ? "Copied!" : "Copy"}
+                </button>
+              )}
             </div>
             <div className="flex-1 min-h-0">
               {response ? (
                 <Editor
                   height="100%"
-                  language="json"
+                  language={languageMap[language]}
                   value={response}
                   theme="vs-dark"
                   options={{
@@ -204,7 +216,8 @@ export default function TestCaseGen() {
 
         {/* Footer */}
         <div className="mt-6 text-xs text-gray-500 text-center">
-          Tip: Output is always formatted as valid JSON with pretty-print.
+          Tip: Output is shown as fully formatted runnable code in{" "}
+          {language}.
         </div>
       </div>
     </div>
