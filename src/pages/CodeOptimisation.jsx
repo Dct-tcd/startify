@@ -37,7 +37,19 @@ export default function CodeOptimizer() {
         body: { language, code: inputCode, model },
       });
       if (error) throw error;
+
       setResult(data);
+
+      // Save to local prompt history (optional)
+      const history = JSON.parse(localStorage.getItem("promptHistory") || "[]");
+      const newEntry = {
+        id: Date.now(),
+        type: "Code Optimization",
+        input: inputCode,
+        output: data?.optimizedCode || "",
+        timestamp: new Date().toLocaleString(),
+      };
+      localStorage.setItem("promptHistory", JSON.stringify([newEntry, ...history]));
     } catch (e) {
       setErr(e.message || "Something went wrong");
     } finally {
@@ -64,7 +76,7 @@ export default function CodeOptimizer() {
 
   return (
     <div className="min-h-screen w-full bg-gray-900 text-gray-100">
-      <div className="mx-auto max-w-screen-lg px-4 py-1">
+      <div className="mx-auto max-w-screen-xl px-4 py-1">
         {/* Header */}
         <h1 className="mb-3 text-2xl font-bold tracking-tight text-gray-100">
           Code Optimizer
@@ -97,7 +109,7 @@ export default function CodeOptimizer() {
             <select
               className="w-40 rounded-md border border-gray-700 bg-gray-800 px-2 py-1 text-sm text-gray-100 shadow-sm outline-none focus:ring-2 focus:ring-sky-500"
               value={model}
-              onChange={e => setModel(e.target.value)}
+              onChange={(e) => setModel(e.target.value)}
             >
               <option value="gpt-4o">GPT-4o</option>
               <option value="gpt-4o-mini">GPT-4o Mini</option>
@@ -105,9 +117,10 @@ export default function CodeOptimizer() {
               <option value="gemini">Gemini</option>
             </select>
           </div>
+
           <div className="flex gap-2 md:ml-auto">
             <button
-              className="rounded-lg bg-sky-600 px-2 py-1 text-sm font-medium text-white shadow hover:bg-sky-700 disabled:opacity-60"
+              className="rounded-lg bg-sky-600 px-3 py-1.5 text-sm font-medium text-white shadow hover:bg-sky-700 disabled:opacity-60"
               onClick={handleOptimize}
               type="button"
               disabled={isLoading || !inputCode.trim()}
@@ -115,7 +128,7 @@ export default function CodeOptimizer() {
               {isLoading ? "Optimizing…" : "Optimize"}
             </button>
             <button
-              className="rounded-lg border border-gray-700 bg-gray-800 px-2 py-1 text-sm font-medium text-gray-100 shadow hover:bg-gray-700"
+              className="rounded-lg border border-gray-700 bg-gray-800 px-3 py-1.5 text-sm font-medium text-gray-100 shadow hover:bg-gray-700"
               onClick={handleClear}
               type="button"
             >
@@ -130,107 +143,125 @@ export default function CodeOptimizer() {
           </div>
         )}
 
-        {/* Input & Output Editors */}
+        {/* Input & Results (match CodeReview layout) */}
         <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-          <div className="flex flex-col overflow-hidden rounded-2xl border border-gray-700 bg-gray-800 shadow">
+          {/* Input Panel */}
+          <div className="h-[70vh] min-h-[420px] flex flex-col overflow-hidden rounded-2xl border border-gray-700 bg-gray-800 max-w-[600px]">
             <div className="border-b border-gray-700 px-4 py-3">
-              <h2 className="text-sm font-semibold text-gray-200">Input Code</h2>
+              <h2 className="text-sm font-semibold">Input Code</h2>
             </div>
-            <div className="flex-1 min-h-[400px]">
-              <Editor
-                height="100%"
-                language={languageMap[language]}
-                value={inputCode}
-                key={language}
-                onChange={(val) => setInputCode(val || "")}
-                theme="vs-dark"
-                options={{
-                  minimap: { enabled: false },
-                  fontSize: 14,
-                  scrollBeyondLastLine: false,
-                  wordWrap: "on",
-                }}
-              />
-            </div>
+            <Editor
+              height="100%"
+              language={languageMap[language]}
+              value={inputCode}
+              key={language}
+              onChange={(val) => setInputCode(val || "")}
+              theme="vs-dark"
+              options={{
+                minimap: { enabled: false },
+                fontSize: 14,
+                scrollBeyondLastLine: false,
+                wordWrap: "on",
+              }}
+            />
           </div>
 
-          <div className="flex flex-col overflow-hidden rounded-2xl border border-gray-700 bg-gray-800 shadow">
+          {/* Output Panel — show code + Improvements/Tradeoffs INSIDE the box */}
+          <div className="h-[70vh] min-h-[420px] flex flex-col overflow-hidden rounded-2xl border border-gray-700 bg-gray-800 max-w-[600px]">
             <div className="flex items-center justify-between border-b border-gray-700 px-4 py-3">
-              <h2 className="text-sm font-semibold text-gray-200">
-                Optimized Code
-              </h2>
+              <h2 className="text-sm font-semibold">Optimization Results</h2>
               {result?.optimizedCode && (
                 <button
                   onClick={handleCopy}
                   className="rounded bg-gray-700 px-2 py-1 text-xs text-gray-200 hover:bg-gray-600"
                 >
-                  {copied ? "Copied!" : "Copy"}
+                  {copied ? "Copied!" : "Copy Code"}
                 </button>
               )}
             </div>
-            <div className="flex-1 min-h-[400px]">
-              {result?.optimizedCode ? (
-                <Editor
-                  height="100%"
-                  language={languageMap[language]}
-                  value={result.optimizedCode}
-                  theme="vs-dark"
-                  options={{
-                    readOnly: true,
-                    minimap: { enabled: false },
-                    fontSize: 14,
-                    scrollBeyondLastLine: false,
-                    wordWrap: "on",
-                  }}
-                />
-              ) : isLoading ? (
-                <div className="h-full w-full p-4 text-sm text-gray-400">
-                  Optimizing code…
-                </div>
+
+            <div className="flex-1 overflow-y-auto p-4 text-sm">
+              {isLoading ? (
+                <div className="text-gray-400">Optimizing code…</div>
+              ) : !result ? (
+                <div className="italic text-gray-500">No results yet.</div>
               ) : (
-                <div className="h-full w-full p-4 text-sm italic text-gray-500">
-                  No optimized code yet.
+                <div className="space-y-6">
+                  {/* Optimized Code (fixed height inside scroll, like a section) */}
+                  {result.optimizedCode && (
+                    <div>
+                      <h3 className="font-semibold mb-2">Optimized Code</h3>
+                      <div className="rounded-lg border border-gray-700 bg-gray-900">
+                        <Editor
+                          height="260px"
+                          language={languageMap[language]}
+                          value={result.optimizedCode}
+                          theme="vs-dark"
+                          options={{
+                            readOnly: true,
+                            minimap: { enabled: false },
+                            fontSize: 14,
+                            scrollBeyondLastLine: false,
+                            wordWrap: "on",
+                          }}
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Improvements */}
+                  {result.improvements?.length > 0 && (
+                    <div>
+                      <h3 className="font-semibold mb-1">Improvements</h3>
+                      <ul className="list-disc list-inside text-gray-300">
+                        {result.improvements.map((item, i) => (
+                          <li key={i}>{item}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
+                  {/* Tradeoffs */}
+                  {result.potentialTradeoffs?.length > 0 && (
+                    <div>
+                      <h3 className="font-semibold mb-1">Tradeoffs</h3>
+                      <ul className="list-disc list-inside text-gray-300">
+                        {result.potentialTradeoffs.map((item, i) => (
+                          <li key={i}>{item}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
+                  {/* References */}
+                  {result.references?.length > 0 && (
+                    <div>
+                      <h3 className="font-semibold mb-1">References</h3>
+                      <ul className="list-disc list-inside text-blue-400">
+                        {result.references.map((ref, i) => (
+                          <li key={i}>
+                            {typeof ref === "string" && ref.startsWith("http") ? (
+                              <a
+                                href={ref}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="underline hover:text-blue-300"
+                              >
+                                {ref}
+                              </a>
+                            ) : (
+                              String(ref)
+                            )}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
           </div>
         </div>
-
-        {/* Improvements / Tradeoffs / References */}
-        {result && (
-          <div className="mt-6 grid grid-cols-1 gap-6 md:grid-cols-3">
-            <div className="rounded-2xl border border-gray-700 bg-gray-800 p-4 shadow">
-              <h3 className="mb-2 text-sm font-semibold text-sky-400">
-                Improvements
-              </h3>
-              <ul className="list-disc pl-4 space-y-1 text-sm text-gray-300">
-                {result.improvements?.map((imp, i) => (
-                  <li key={i}>{imp}</li>
-                ))}
-              </ul>
-            </div>
-            <div className="rounded-2xl border border-gray-700 bg-gray-800 p-4 shadow">
-              <h3 className="mb-2 text-sm font-semibold text-yellow-400">
-                Tradeoffs
-              </h3>
-              <ul className="list-disc pl-4 space-y-1 text-sm text-gray-300">
-                {result.potentialTradeoffs?.map((t, i) => (
-                  <li key={i}>{t}</li>
-                ))}
-              </ul>
-            </div>
-            <div className="rounded-2xl border border-gray-700 bg-gray-800 p-4 shadow">
-              <h3 className="mb-2 text-sm font-semibold text-green-400">
-                References
-              </h3>
-              <ul className="list-disc pl-4 space-y-1 text-sm text-gray-300">
-                {result.references?.map((r, i) => (
-                  <li key={i}>{r}</li>
-                ))}
-              </ul>
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );

@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { createClient } from "@supabase/supabase-js";
 import Editor from "@monaco-editor/react";
@@ -7,9 +6,7 @@ const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
-
 export default function AutomationWriter() {
-  const [topic, setTopic] = useState("");
   const [useCase, setUseCase] = useState("");
   const [response, setResponse] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -19,27 +16,28 @@ export default function AutomationWriter() {
   const handleGenerate = async () => {
     setErr("");
     setResponse("");
-    if (!topic.trim() || !useCase.trim()) {
-      setErr("Please provide a topic and use case.");
+    if (!useCase.trim()) {
+      setErr("Please describe your use case.");
       return;
     }
+
     setIsLoading(true);
     try {
-      // Simulate async automation generation
-      setTimeout(() => {
-        setResponse(
-          `// Automation Script for: ${topic}\n// Use case: ${useCase}\n// Step 1: Open browser\n// Step 2: Navigate to login page\n// Step 3: Enter credentials\n// Step 4: Click Login\n// Step 5: Verify dashboard`
-        );
-        setIsLoading(false);
-      }, 1000);
+      const { data, error } = await supabase.functions.invoke("automation-writer", {
+        body: { useCase },
+      });
+
+      if (error) throw error;
+
+      setResponse(data?.automationScript || "");
     } catch (e) {
       setErr(e.message || "Something went wrong");
+    } finally {
       setIsLoading(false);
     }
   };
 
   const handleClear = () => {
-    setTopic("");
     setUseCase("");
     setResponse("");
     setErr("");
@@ -66,21 +64,19 @@ export default function AutomationWriter() {
 
         {/* Controls */}
         <div className="mb-4 flex flex-col gap-4 md:flex-row md:items-end">
-          {/* <div className="flex-1">
-            <label className="mb-1 block text-xs font-medium text-gray-300">Topic Name</label>
-            <input
-              className="w-full rounded-md border border-gray-700 bg-gray-800 px-2 py-1 text-sm text-gray-100 shadow-sm outline-none focus:ring-2 focus:ring-sky-500"
-              value={topic}
-              onChange={e => setTopic(e.target.value)}
-              placeholder="e.g. Login Automation"
-            />
-          </div> */}
+          <textarea
+            className="flex-1 rounded-md border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-gray-100 shadow-sm outline-none focus:ring-2 focus:ring-sky-500"
+            rows={3}
+            placeholder="Describe your use case (e.g., Automate login with username and password, verify dashboard)..."
+            value={useCase}
+            onChange={e => setUseCase(e.target.value)}
+          />
           <div className="flex gap-2 md:ml-auto mt-2 md:mt-0">
             <button
               className="rounded-lg bg-sky-600 px-4 py-2 text-sm font-medium text-white shadow hover:bg-sky-700 disabled:opacity-60"
               onClick={handleGenerate}
               type="button"
-              disabled={!topic.trim() || !useCase.trim() || isLoading}
+              disabled={!useCase.trim() || isLoading}
             >
               {isLoading ? "Generating…" : "Generate Automation"}
             </button>
@@ -94,49 +90,9 @@ export default function AutomationWriter() {
           </div>
         </div>
 
-        {/* Use case input below header */}
-        {/* <div className="mb-4">
-          <label className="block text-xs font-medium text-gray-300 mb-1">Describe your use case</label>
-          <Editor
-            height="100px"
-            language="markdown"
-            value={useCase}
-            onChange={val => setUseCase(val || "")}
-            theme="vs-dark"
-            options={{
-              minimap: { enabled: false },
-              fontSize: 14,
-              scrollBeyondLastLine: false,
-              wordWrap: "on",
-            }}
-          />
-        </div> */}
-
-        {/* Panels with fixed width */}
-        <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-          {/* Use Case Panel */}
-          <div className="mx-auto w-full max-w-[600px] flex h-[70vh] min-h-[200px] flex-col overflow-hidden rounded-2xl border border-gray-700 bg-gray-800 shadow">
-            <div className="border-b border-gray-700 px-4 py-3">
-              <h2 className="text-sm font-semibold text-gray-200">Use Case</h2>
-            </div>
-            <div className="flex-1 min-h-0">
-              <Editor
-                height="100%"
-                language="markdown"
-                value={useCase}
-                theme="vs-dark"
-                options={{
-                  readOnly: true,
-                  minimap: { enabled: false },
-                  fontSize: 14,
-                  scrollBeyondLastLine: false,
-                  wordWrap: "on",
-                }}
-              />
-            </div>
-          </div>
-          {/* Output Panel */}
-          <div className="mx-auto w-full max-w-[600px] flex h-[70vh] min-h-[200px] flex-col overflow-hidden rounded-2xl border border-gray-700 bg-gray-800 shadow">
+        {/* Panels */}
+        <div className="mt-6">
+          <div className="mx-auto w-full flex h-[70vh] min-h-[200px] flex-col overflow-hidden rounded-2xl border border-gray-700 bg-gray-800 shadow">
             <div className="flex items-center justify-between border-b border-gray-700 px-4 py-3">
               <h2 className="text-sm font-semibold text-gray-200">Generated Automation Script</h2>
               {response && (
@@ -164,11 +120,11 @@ export default function AutomationWriter() {
                   }}
                 />
               ) : isLoading ? (
-                <div className="h-full w-full rounded-xl border border-gray-700 bg-gray-900 p-4 text-sm text-gray-400">
+                <div className="h-full w-full flex items-center justify-center text-sm text-gray-400">
                   Generating automation…
                 </div>
               ) : (
-                <div className="h-full w-full rounded-xl border border-gray-700 bg-gray-900 p-4 text-sm italic text-gray-500">
+                <div className="h-full w-full flex items-center justify-center text-sm italic text-gray-500">
                   No automation script generated yet.
                 </div>
               )}
@@ -176,10 +132,8 @@ export default function AutomationWriter() {
           </div>
         </div>
 
-        {/* Footer */}
-        <div className="mt-6 text-xs text-gray-500 text-center">
-          Tip: Panels are fixed width (600px) for readability.
-        </div>
+        {/* Error */}
+        {err && <div className="mt-4 text-sm text-red-400">{err}</div>}
       </div>
     </div>
   );
