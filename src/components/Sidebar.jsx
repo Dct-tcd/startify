@@ -27,7 +27,7 @@ const testerLinks = [
 export default function Sidebar({ open, onClose }) {
   const [mode, setMode] = useState("developer");
 
-  const links = mode === "developer" ? developerLinks : testerLinks;
+  const links = mode === "tester" ? developerLinks : testerLinks;
 
   const toggleMode = () => {
     setMode(prev => (prev === "developer" ? "tester" : "developer"));
@@ -50,7 +50,9 @@ export default function Sidebar({ open, onClose }) {
       >
         {/* Header with toggle */}
         <div className="h-14 border-b border-gray-800 px-4 flex items-center justify-between text-gray-100 font-semibold">
-          <span>Tools</span>
+          <span>
+        {mode === "developer" ? "Tester Tools" : "Developer Tools"}
+      </span>
           <button
             onClick={toggleMode}
             className="flex items-center gap-1 text-xs px-2 py-1 rounded-md bg-gray-800 hover:bg-gray-700 text-gray-300"
