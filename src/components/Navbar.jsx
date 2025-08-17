@@ -13,13 +13,12 @@ export default function Navbar({ onToggleSidebar }) {
           </div> */}
 
           <svg xmlns="http://www.w3.org/2000/svg" width="240" height="60" viewBox="0 0 240 60">
-  <circle cx="25" cy="25" r="22" fill="#0284C7"/>
-  <text x="25" y="32" font-size="22" text-anchor="middle" fill="white">🧠</text>
+<circle cx="25" cy="30" r="22" fill="#0284C7"/>
+<text x="25" y="35" font-size="22" text-anchor="middle" fill="white">🧠</text>
 
-
-  <text x="70" y="38" font-size="24" font-family="Arial, sans-serif" font-weight="bold" fill="#f1ececff">
-    CodeMentor <tspan fill="#0284C7">AI</tspan>
-  </text>
+<text x="50" y="38" font-size="24" font-family="Arial, sans-serif" font-weight="bold" fill="#f1ececff">
+CodeMentor <tspan fill="#0284C7">AI</tspan>
+</text>
 </svg>
 
         </div>
