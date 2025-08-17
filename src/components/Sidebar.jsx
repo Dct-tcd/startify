@@ -21,7 +21,7 @@ const testerLinks = [
   { to: "/", label: "Dashboard", icon: PanelsTopLeft },
   { to: "/test-case-gen", label: "Test Case Gen", icon: CheckSquare },
   { to: "/test-data", label: "Test Data Gen", icon: Database },
-    { to: "/automation-writer", label: "Automation Writer", icon: Wand2 },
+    // { to: "/automation-writer", label: "Automation Writer", icon: Wand2 },
 ];
 
 export default function Sidebar({ open, onClose }) {

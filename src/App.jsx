@@ -28,7 +28,7 @@ import './App.css'
                <Route path="/" element={<HomePage />} />
                <Route path="/test-case-gen" element={<TestCaseGen />} />
                <Route path="/bug-fixer" element={<BugFixer />} />
-               <Route path="/automation-writer" element={<AutomationWriter />} />
+               {/* <Route path="/automation-writer" element={<AutomationWriter />} /> */}
                <Route path="/test-data" element={<TestDataGen />} />
                <Route path="/code-migration" element={<CodeMigration />} />
                <Route path="/code-optimisation" element={<CodeOptimisation />} />
