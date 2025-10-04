@@ -76,9 +76,9 @@ export default function CodeOptimizer() {
 
   return (
     <div className="min-h-screen w-full bg-gray-900 text-gray-100">
-      <div className="mx-auto max-w-screen-xl px-4 py-1">
+      <div className="mx-auto max-w-screen-lg px-2 py-1">
         {/* Header */}
-        <h1 className="mb-3 text-2xl font-bold tracking-tight text-gray-100">
+        <h1 className="mb-2 text-2xl font-bold tracking-tight text-gray-100">
           Code Optimizer
         </h1>
 

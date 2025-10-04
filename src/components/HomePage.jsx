@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { Bug, CheckSquare, FileCode2, Database, Settings, History, Wand2, MoveRight, ShieldCheck } from "lucide-react";
+import { Bug, CheckSquare, FileCode2, Database, Settings, History, MoveRight, ShieldCheck, LucideUpload } from "lucide-react";
 import Card from "../components/Card";
 
 const tools = [
@@ -12,6 +12,9 @@ const tools = [
   { to: "/code-review", title: "Code Review", subtitle: "AI suggestions & diff notes", icon: <FileCode2 size={20}/> },
   { to: "/prompts", title: "Prompt History", subtitle: "Frequently used prompts", icon: <History size={20}/> },
   { to: "/settings", title: "Integrations", subtitle: "Jira, GitHub, API keys", icon: <Settings size={20}/> },
+  
+  { to: "/file-test-gen", title: "File-feature test gen", subtitle: "Generate test cases from file", icon: <LucideUpload size={20}/> },
+
 ];
 
 export default function HomePage() {
