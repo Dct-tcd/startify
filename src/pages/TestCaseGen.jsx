@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { createClient } from "@supabase/supabase-js";
-import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
-import { oneDark } from "react-syntax-highlighter/dist/esm/styles/prism";
+import Editor from "@monaco-editor/react";
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
@@ -16,32 +15,16 @@ const languageMap = {
   Go: "go",
 };
 
-function CodeBlock({ code, language }) {
-  const syntaxLanguage = languageMap[language] || "text";
-  return (
-    <div className="overflow-auto w-full rounded-md border border-slate-700">
-      <SyntaxHighlighter
-        language={syntaxLanguage}
-        style={oneDark}
-        wrapLines={true}
-        showLineNumbers={true}
-      >
-        {String(code)}
-      </SyntaxHighlighter>
-    </div>
-  );
-}
-
 export default function TestCaseGen() {
   const [language, setLanguage] = useState("JavaScript");
-  const [maxLength, setMaxLength] = useState(200);
+  const [model, setModel] = useState("gpt-4o");
   const [inputCode, setInputCode] = useState("");
   const [response, setResponse] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [err, setErr] = useState("");
+  const [copied, setCopied] = useState(false);
 
-  // Normalize line breaks for all languages
-  const formatCode = (code) => {
+  const normalizeCode = (code) => {
     if (!code || typeof code !== "string") return "";
     return code.replace(/\r\n/g, "\n").trim();
   };
@@ -56,15 +39,20 @@ export default function TestCaseGen() {
     setIsLoading(true);
     try {
       const { data, error } = await supabase.functions.invoke("test-case-gen", {
-        body: { language, code: inputCode, maxLength },
+        body: { language, code: inputCode, model },
       });
       if (error) throw error;
 
-      let code = data?.testCases;
-      if (Array.isArray(code)) code = code.join("\n");
-      if (typeof code !== "string") code = String(code || "");
+      let cases = data?.testCases;
 
-      setResponse(formatCode(code));
+      // Ensure array
+      if (!Array.isArray(cases)) {
+        cases = [String(cases || "")];
+      }
+
+      // Join into one block
+      const joined = cases.join("\n\n");
+      setResponse(normalizeCode(joined));
     } catch (e) {
       setErr(e.message || "Something went wrong");
     } finally {
@@ -78,94 +66,158 @@ export default function TestCaseGen() {
     setErr("");
   };
 
-  const handleLanguageChange = (e) => {
-    setLanguage(e.target.value);
-    handleClear(); // Clear input/output when language changes
+  const handleCopy = async () => {
+    if (!response) return;
+    try {
+      await navigator.clipboard.writeText(response);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      setErr("Failed to copy code.");
+    }
   };
 
   return (
-    <div className="flex flex-col gap-6 w-full px-4">
-      <h1 className="text-xl font-bold">Test Case Generation</h1>
+    <div className="min-h-screen w-full bg-gray-900 text-gray-100">
+      <div className="mx-auto max-w-screen-lg px-2 py-1">
+        {/* Header */}
+        <h1 className="mb-2 text-2xl font-bold tracking-tight text-gray-100">
+          Test Case Generator
+        </h1>
 
-      {/* Controls */}
-      <div className="flex flex-col md:flex-row md:items-end gap-4 mb-2">
-        <div>
-          <label className="block text-xs font-medium text-slate-700 mb-1">
-            Language
-          </label>
-          <select
-            className="input w-32 text-xs py-1 px-2"
-            value={language}
-            onChange={handleLanguageChange}
-          >
-            <option>JavaScript</option>
-            <option>TypeScript</option>
-            <option>Python</option>
-            <option>Java</option>
-            <option>C#</option>
-            <option>Go</option>
-          </select>
+        {/* Controls */}
+        <div className="mb-4 flex flex-col gap-4 md:flex-row md:items-end">
+          <div>
+            <label className="mb-1 block text-xs font-medium text-gray-300">
+              Language
+            </label>
+            <select
+              className="w-40 rounded-md border border-gray-700 bg-gray-800 px-2 py-1 text-sm text-gray-100 shadow-sm outline-none focus:ring-2 focus:ring-sky-500"
+              value={language}
+              onChange={(e) => setLanguage(e.target.value)}
+            >
+              <option>JavaScript</option>
+              <option>TypeScript</option>
+              <option>Python</option>
+              <option>Java</option>
+              <option>C#</option>
+              <option>Go</option>
+            </select>
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-medium text-gray-300">
+              AI Model
+            </label>
+            <select
+              className="w-40 rounded-md border border-gray-700 bg-gray-800 px-2 py-1 text-sm text-gray-100 shadow-sm outline-none focus:ring-2 focus:ring-sky-500"
+              value={model}
+              onChange={(e) => setModel(e.target.value)}
+            >
+              <option value="gpt-4o">GPT-4o</option>
+              <option value="gpt-4o-mini">GPT-4o Mini</option>
+              <option value="gpt-5">GPT-5</option>
+              <option value="gemini">Gemini</option>
+            </select>
+          </div>
+          <div className="flex gap-2 md:ml-auto">
+            <button
+              className="rounded-lg bg-sky-600 px-4 py-2 text-sm font-medium text-white shadow hover:bg-sky-700 disabled:opacity-60"
+              onClick={handleGenerate}
+              type="button"
+              disabled={isLoading || !inputCode.trim()}
+            >
+              {isLoading ? "Generating…" : "Generate"}
+            </button>
+            <button
+              className="rounded-lg border border-gray-700 bg-gray-800 px-4 py-2 text-sm font-medium text-gray-100 shadow hover:bg-gray-700"
+              onClick={handleClear}
+              type="button"
+            >
+              Clear
+            </button>
+          </div>
         </div>
 
-        <div>
-          <label className="block text-xs font-medium text-slate-700 mb-1">
-            Maximum Output Length
-          </label>
-          <input
-            type="number"
-            className="input w-24 text-xs py-1 px-2"
-            min={50}
-            max={4000}
-            value={maxLength}
-            onChange={(e) => setMaxLength(Number(e.target.value))}
-          />
+        {err && (
+          <div className="mb-4 rounded-lg border border-red-400 bg-red-900/30 p-3 text-sm text-red-300 shadow-sm">
+            {err}
+          </div>
+        )}
+
+        {/* Panels */}
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+          {/* Input */}
+          <div className="mx-auto w-full max-w-[600px] flex h-[70vh] min-h-[420px] flex-col overflow-hidden rounded-2xl border border-gray-700 bg-gray-800 shadow">
+            <div className="border-b border-gray-700 px-4 py-3">
+              <h2 className="text-sm font-semibold text-gray-200">
+                Input Code
+              </h2>
+            </div>
+            <div className="flex-1 min-h-0">
+              <Editor
+                height="100%"
+                language={languageMap[language]}
+                value={inputCode}
+                key={language}
+                onChange={(val) => setInputCode(val || "")}
+                theme="vs-dark"
+                options={{
+                  minimap: { enabled: false },
+                  fontSize: 14,
+                  scrollBeyondLastLine: false,
+                  wordWrap: "on",
+                }}
+              />
+            </div>
+          </div>
+
+          {/* Output */}
+          <div className="mx-auto w-full max-w-[600px] flex h-[70vh] min-h-[420px] flex-col overflow-hidden rounded-2xl border border-gray-700 bg-gray-800 shadow">
+            <div className="flex items-center justify-between border-b border-gray-700 px-4 py-3">
+              <h2 className="text-sm font-semibold text-gray-200">
+                Generated Test Cases
+              </h2>
+              {response && (
+                <button
+                  onClick={handleCopy}
+                  className="rounded bg-gray-700 px-2 py-1 text-xs text-gray-200 hover:bg-gray-600"
+                >
+                  {copied ? "Copied!" : "Copy"}
+                </button>
+              )}
+            </div>
+            <div className="flex-1 min-h-0">
+              {response ? (
+                <Editor
+                  height="100%"
+                  language={languageMap[language]}
+                  value={response}
+                  theme="vs-dark"
+                  options={{
+                    readOnly: true,
+                    minimap: { enabled: false },
+                    fontSize: 14,
+                    scrollBeyondLastLine: false,
+                    wordWrap: "on",
+                  }}
+                />
+              ) : isLoading ? (
+                <div className="h-full w-full rounded-xl border border-gray-700 bg-gray-900 p-4 text-sm text-gray-400">
+                  Generating test cases…
+                </div>
+              ) : (
+                <div className="h-full w-full rounded-xl border border-gray-700 bg-gray-900 p-4 text-sm italic text-gray-500">
+                  No test cases generated yet.
+                </div>
+              )}
+            </div>
+          </div>
         </div>
 
-        <div className="flex gap-2 md:ml-auto">
-          <button
-            className="btn btn-primary px-3 text-xs disabled:opacity-60"
-            onClick={handleGenerate}
-            type="button"
-            disabled={isLoading || !inputCode.trim()}
-          >
-            {isLoading ? "Generating…" : "Generate Test Cases"}
-          </button>
-          <button className="btn btn-ghost" onClick={handleClear} type="button">
-            Clear
-          </button>
-        </div>
-      </div>
-
-      {err && (
-        <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg p-3">
-          {err}
-        </div>
-      )}
-
-      {/* Input/Output Panels */}
-      <div className="flex flex-col md:flex-row gap-6 w-full">
-        <div className="card p-4 flex flex-col flex-1 w-full max-w-[800px]">
-          <h2 className="text-base font-semibold mb-2">Input Code</h2>
-          <textarea
-            className="input font-mono h-64 resize-none overflow-auto w-full"
-            value={inputCode}
-            onChange={(e) => setInputCode(e.target.value)}
-            placeholder="Paste the code you want tests for…"
-            spellCheck={false}
-          />
-        </div>
-
-        <div className="card p-4 flex flex-col flex-1 w-full max-w-[800px]">
-          <h2 className="text-base font-semibold mb-2">Generated Test Cases</h2>
-          {response ? (
-            <CodeBlock code={response} language={language} />
-          ) : isLoading ? (
-            <div>Generating test cases…</div>
-          ) : (
-            <span className="text-slate-400 italic">
-              No test cases generated yet.
-            </span>
-          )}
+        {/* Footer */}
+        <div className="mt-6 text-xs text-gray-500 text-center">
+          Tip: Output is shown as fully formatted runnable code in{" "}
+          {language}.
         </div>
       </div>
     </div>

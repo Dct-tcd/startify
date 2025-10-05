@@ -4,19 +4,19 @@
 
 /* Typography scale tweaks */
 @layer base {
-  h1 { @apply text-2xl md:text-3xl font-semibold text-slate-900; }
-  h2 { @apply text-xl md:text-2xl font-semibold text-slate-900; }
-  h3 { @apply text-lg font-semibold text-slate-900; }
+  h1 { @apply text-2xl md:text-3xl font-semibold text-gray-100; }
+  h2 { @apply text-xl md:text-2xl font-semibold text-gray-100; }
+  h3 { @apply text-lg font-semibold text-gray-100; }
 }
 
 /* Card primitive */
 @layer components {
-  .card { @apply bg-white rounded-2xl shadow-card border border-slate-100; }
+  .card { @apply bg-gray-800 rounded-2xl shadow-card border border-gray-700 text-gray-100; }
   .card-body { @apply p-5; }
   .btn { @apply inline-flex items-center justify-center rounded-lg px-3 py-2 text-sm font-medium; }
-  .btn-primary { @apply bg-brand-600 text-white hover:bg-brand-700; }
-  .btn-ghost { @apply hover:bg-slate-100; }
-  .nav-link { @apply flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-100 hover:text-slate-900; }
-  .nav-link-active { @apply bg-slate-100 text-slate-900; }
-  .input { @apply block w-full rounded-lg border-slate-300 shadow-sm focus:border-brand-500 focus:ring-brand-500; }
+  .btn-primary { @apply bg-sky-600 text-white hover:bg-sky-700; }
+  .btn-ghost { @apply hover:bg-gray-700 text-gray-100; }
+  .nav-link { @apply flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium text-gray-300 hover:bg-gray-700 hover:text-white; }
+  .nav-link-active { @apply bg-gray-700 text-white; }
+  .input { @apply block w-full rounded-lg border-gray-700 bg-gray-900 text-gray-100 shadow-sm focus:border-sky-500 focus:ring-sky-500; }
 }
