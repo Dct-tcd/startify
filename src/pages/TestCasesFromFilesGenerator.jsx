@@ -1,27 +1,33 @@
 import { useState } from "react";
 import { createClient } from "@supabase/supabase-js";
-import mammoth from "mammoth";
-import * as XLSX from "xlsx"; // ✅ Excel export
+import * as XLSX from "xlsx";
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 export default function FileTestCaseGen() {
-  const [model, setModel] = useState("gpt-4o");
+  const [model, setModel] = useState("gemini");
   const [file, setFile] = useState(null);
   const [fileName, setFileName] = useState("");
-  const [fileText, setFileText] = useState("");
   const [response, setResponse] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [err, setErr] = useState("");
   const [copied, setCopied] = useState(false);
 
+  // Convert file to base64
+  const toBase64 = (file) =>
+    new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = () => resolve(reader.result.split(",")[1]);
+      reader.onerror = (error) => reject(error);
+    });
+
   const handleFileChange = async (e) => {
     const f = e.target.files?.[0];
     setResponse(null);
     setErr("");
-    setFileText("");
 
     if (!f) {
       setFile(null);
@@ -30,12 +36,12 @@ export default function FileTestCaseGen() {
     }
 
     const validMime =
-      f.type ===
-      "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
-    const validExt = f.name.toLowerCase().endsWith(".docx");
+      f.type === "application/pdf";
+        const validExt =
+      f.name.toLowerCase().endsWith(".pdf") 
 
     if (!validMime || !validExt) {
-      setErr("Only Word (.docx) files are allowed.");
+      setErr("Only PDF files are allowed.");
       e.target.value = "";
       setFile(null);
       setFileName("");
@@ -44,16 +50,6 @@ export default function FileTestCaseGen() {
 
     setFile(f);
     setFileName(f.name);
-
-    try {
-      const result = await mammoth.extractRawText({
-        arrayBuffer: await f.arrayBuffer(),
-      });
-      setFileText(result.value);
-    } catch (e) {
-      console.error("Error extracting text:", e);
-      setErr("Failed to read file content.");
-    }
   };
 
   const handleGenerate = async () => {
@@ -61,26 +57,33 @@ export default function FileTestCaseGen() {
     setResponse(null);
 
     if (!file) {
-      setErr("Please select a Word (.docx) file first.");
+      setErr("Please select a PDF file first.");
       return;
     }
 
     setIsLoading(true);
 
     try {
+      const base64Content = await toBase64(file);
+
+      // ✅ FIXED: use correct key `fileContent`
       const { data, error } = await supabase.functions.invoke("file-test-gen", {
         body: {
-          fileName,
-          content: fileText,
+          fileName: file.name,
+          fileContent: base64Content,
           model,
         },
       });
 
-      if (error) throw error;
-      setResponse({ testCases: data?.testCases ?? [] });
+      if (error) {
+        console.error("Supabase function error:", error);
+        throw new Error(error.message || "Error invoking function");
+      }
+
+      setResponse(data);
     } catch (e) {
       console.error("Error generating test cases:", e);
-      setErr(e.message || "Something went wrong");
+      setErr(e.message || "Something went wrong while generating test cases.");
     } finally {
       setIsLoading(false);
     }
@@ -89,14 +92,12 @@ export default function FileTestCaseGen() {
   const handleClear = () => {
     setFile(null);
     setFileName("");
-    setFileText("");
     setResponse(null);
     setErr("");
   };
 
   const handleCopy = async () => {
     if (!response?.testCases?.length) return;
-
     try {
       const plainText = response.testCases
         .map((tc, idx) => {
@@ -132,7 +133,10 @@ export default function FileTestCaseGen() {
     const worksheet = XLSX.utils.json_to_sheet(sheetData);
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "TestCases");
-    XLSX.writeFile(workbook, `${fileName.replace(".docx", "")}_TestCases.xlsx`);
+    XLSX.writeFile(
+      workbook,
+      `${fileName.replace(/\.pdf|\.docx/i, "")}_TestCases.xlsx`
+    );
   };
 
   return (
@@ -146,27 +150,26 @@ export default function FileTestCaseGen() {
         <div className="mb-6 flex flex-col gap-4 md:flex-row md:items-end">
           <div>
             <label className="mb-1 block text-xs font-medium text-gray-300">
-              AI Model
+               Model
             </label>
             <select
               className="w-40 rounded-md border border-gray-700 bg-gray-800 px-2 py-1 text-sm text-gray-100 shadow-sm outline-none focus:ring-2 focus:ring-sky-500"
               value={model}
               onChange={(e) => setModel(e.target.value)}
             >
-              <option value="gpt-4o">GPT-4o</option>
-              <option value="gpt-4o-mini">GPT-4o Mini</option>
-              <option value="gpt-5">GPT-5</option>
               <option value="gemini">Gemini</option>
+              <option value="gpt-4o">GPT-4o</option>
+              <option value="gpt-5">GPT-5</option>
             </select>
           </div>
 
           <div>
             <label className="mb-1 block text-xs font-medium text-gray-300">
-              Upload Word (.docx)
+              Upload a PDF
             </label>
             <input
               type="file"
-              accept=".docx"
+              accept=".pdf"
               className="block w-60 rounded-md border border-gray-700 bg-gray-800 px-2 py-1 text-sm text-gray-100 shadow-sm file:mr-2 file:rounded-md file:border-0 file:bg-sky-600 file:px-3 file:py-1 file:text-white hover:file:bg-sky-700"
               onChange={handleFileChange}
             />
@@ -199,16 +202,39 @@ export default function FileTestCaseGen() {
 
         <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
           {/* Left Panel */}
-          <div className="mx-auto w-full max-w-[600px] flex h-[70vh] min-h-[420px] flex-col overflow-hidden rounded-2xl border border-gray-700 bg-gray-800 shadow">
-            <div className="border-b border-gray-700 px-4 py-3">
-              <h2 className="text-sm font-semibold text-gray-200">
-                Uploaded File Text
-              </h2>
-            </div>
-            <div className="flex-1 min-h-0 overflow-y-auto p-4 text-sm text-gray-200 whitespace-pre-wrap">
-              {fileText || "No file content loaded."}
-            </div>
-          </div>
+         <div className="mx-auto w-full max-w-[600px] flex h-[70vh] min-h-[420px] flex-col overflow-hidden rounded-2xl border border-gray-700 bg-gray-800 shadow">
+  <div className="border-b border-gray-700 px-4 py-3">
+    <h2 className="text-sm font-semibold text-gray-200">Uploaded File</h2>
+  </div>
+
+  {/* Inside the Left Panel */}
+  <div className="flex-1 min-h-0 p-4 text-sm text-gray-200 flex flex-col">
+    {file ? (
+      <>
+        {/* File Info */}
+        <div className="mb-2">
+          <p><strong>Name:</strong> {fileName}</p>
+          <p><strong>Size:</strong> {(file.size / 1024).toFixed(2)} KB</p>
+          <p className="mt-1 text-green-400 font-medium">Ready to upload ✅</p>
+        </div>
+
+        {/* PDF Preview */}
+        <div className="flex-1 border border-gray-700 rounded-lg overflow-hidden mt-2">
+          <iframe
+            src={URL.createObjectURL(file)}
+            title="PDF Preview"
+            className="w-full h-full"
+          />
+        </div>
+      </>
+    ) : (
+      <div className="flex-1 flex items-center justify-center text-gray-500 italic">
+        No file selected.
+      </div>
+    )}
+  </div>
+</div>
+
 
           {/* Right Panel */}
           <div className="mx-auto w-full max-w-[600px] flex flex-col h-[70vh] min-h-[420px] overflow-hidden rounded-2xl border border-gray-700 bg-gray-800 shadow">

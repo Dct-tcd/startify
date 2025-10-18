@@ -10,9 +10,7 @@ const tools = [
   { to: "/code-migration", title: "Code Migration", subtitle: "Framework/language moves", icon: <MoveRight size={20}/> },
   { to: "/code-optimisation", title: "Code Optimisation", subtitle: "Refactor & improve", icon: <ShieldCheck size={20}/> },
   { to: "/code-review", title: "Code Review", subtitle: "AI suggestions & diff notes", icon: <FileCode2 size={20}/> },
-  { to: "/prompts", title: "Prompt History", subtitle: "Frequently used prompts", icon: <History size={20}/> },
-  { to: "/settings", title: "Integrations", subtitle: "Jira, GitHub, API keys", icon: <Settings size={20}/> },
-  
+  { to: "/prompts", title: "Prompt History", subtitle: "Frequently used prompts", icon: <History size={20}/> },  
   { to: "/file-test-gen", title: "File-feature test gen", subtitle: "Generate test cases from file", icon: <LucideUpload size={20}/> },
 
 ];
