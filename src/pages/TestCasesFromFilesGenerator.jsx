@@ -16,11 +16,7 @@ export default function FileTestCaseGen() {
   const [isLoading, setIsLoading] = useState(false);
   const [err, setErr] = useState("");
   const [expanded, setExpanded] = useState({});
-  const [copied, setCopied] = useState(false);
-  const fileInputRef = useRef(null);
   const [controller, setController] = useState(null);
-
-
 
   useEffect(() => {
     if (file) {
@@ -54,59 +50,53 @@ export default function FileTestCaseGen() {
     setFileName(f.name);
   };
 
-  // const handleGenerate = async () => {
-  //   setErr("");
-  //   setResponse(null);
-
-  //   if (!file) {
-  //     setErr("Please select a Word (.docx) file first.");
-  //     return;
-  //   }
-
-  //   setIsLoading(true);
-
-  //   try {
-  //     const { data, error } = await supabase.functions.invoke("file-test-gen", {
-  //       body: {
-  //         fileName,
-  //         content: fileText,
-  //         model,
-  //       },
-  //     });
-
-  //     if (error) throw error;
-  //     setResponse({ testCases: data?.testCases ?? [] });
-  //   } catch (e) {
-  //     console.error("Error generating test cases:", e);
-  //     setErr(e.message || "Something went wrong");
-  //   } finally {
-  //     setIsLoading(false);
-  //   }
-  // };
-
   const handleGenerate = async () => {
     setErr("");
     setResponse(null);
     if (!file) return setErr("Please upload a PDF first.");
 
+    const newController = new AbortController();
+    setController(newController);
     setIsLoading(true);
+
     try {
       const base64 = await toBase64(file);
       const { data, error } = await supabase.functions.invoke("file-test-gen", {
         body: { fileName: file.name, fileContent: base64, model },
+        signal: newController.signal,
       });
+
       if (error) throw new Error(error.message);
       setResponse(data);
     } catch (e) {
-      setErr(e.message || "Failed to generate test cases.");
+      if (e.name === "AbortError") {
+        setErr("Generation stopped by user.");
+      } else {
+        setErr(e.message || "Failed to generate test cases.");
+      }
     } finally {
       setIsLoading(false);
+      setController(null);
     }
-  } finally {
-    setIsLoading(false);
-    setController(null); // ✅ reset controller
-  }
-};
+  };
+
+  const handleStop = () => {
+    if (controller) {
+      controller.abort();
+      setController(null);
+      setIsLoading(false);
+    }
+  };
+
+  const handleClear = () => {
+    setFile(null);
+    setFileUrl(null);
+    setFileName("");
+    setResponse(null);
+    setErr("");
+    setExpanded({});
+    setController(null);
+  };
 
   const handleDownloadExcel = () => {
     if (!response?.testCases?.length) return;
@@ -140,46 +130,65 @@ export default function FileTestCaseGen() {
         <h1 className="mb-4 text-2xl font-bold">File-based Test Case Generator</h1>
 
         <div className="mb-6 flex flex-col gap-4 md:flex-row md:items-end">
-        <div className="flex flex-wrap gap-4 items-center">
-  {/* Model Selector */}
-  <div className="flex flex-col">
-    <label className="text-xs font-medium text-gray-400 mb-1">
-      Model
-    </label>
-    <select
-      value={model}
-      onChange={(e) => setModel(e.target.value)}
-      className="w-44 rounded-xl bg-gray-800 px-3 py-2 text-sm text-gray-200 shadow-md outline-none focus:ring-2 focus:ring-sky-500 transition"
-    >
-      <option value="gemini">Gemini</option>
-      <option value="gpt-4o">GPT-4o</option>
-      <option value="gpt-5">GPT-5</option>
-    </select>
-  </div>
+          <div className="flex flex-wrap gap-4 items-center">
+            {/* Model Selector */}
+            <div className="flex flex-col">
+              <label className="text-xs font-medium text-gray-400 mb-1">Model</label>
+              <select
+                value={model}
+                onChange={(e) => setModel(e.target.value)}
+                disabled={isLoading}
+                className="w-44 rounded-xl bg-gray-800 px-3 py-2 text-sm text-gray-200 shadow-md outline-none focus:ring-2 focus:ring-sky-500 transition disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <option value="gemini">Gemini</option>
+                <option value="gpt-4o">GPT-4o</option>
+                <option value="gpt-5">GPT-5</option>
+              </select>
+            </div>
 
-  {/* File Upload */}
-  <div className="flex flex-col">
-    <label className="text-xs font-medium text-gray-400 mb-1">
-      Upload PDF
-    </label>
-    <input
-      type="file"
-      accept=".pdf"
-      onChange={handleFileChange}
-      className="w-64 rounded-xl bg-gray-800 px-3 py-2 text-sm text-gray-200 shadow-md file:mr-3 file:rounded-lg file:border-0 file:bg-sky-600 file:px-3 file:py-1.5 file:text-sm file:font-medium hover:file:bg-sky-700 focus:ring-2 focus:ring-sky-500 transition"
-    />
-  </div>
-</div>
+            {/* File Upload */}
+            <div className="flex flex-col">
+              <label className="text-xs font-medium text-gray-400 mb-1">Upload PDF</label>
+              <input
+                type="file"
+                accept=".pdf"
+                onChange={handleFileChange}
+                disabled={isLoading}
+                className="w-64 rounded-xl bg-gray-800 px-3 py-2 text-sm text-gray-200 shadow-md file:mr-3 file:rounded-lg file:border-0 file:bg-sky-600 file:px-3 file:py-1.5 file:text-sm file:font-medium hover:file:bg-sky-700 focus:ring-2 focus:ring-sky-500 transition disabled:opacity-50 disabled:cursor-not-allowed"
+              />
+            </div>
+          </div>
 
-
+          {/* Action Buttons */}
           <div className="flex gap-2 md:ml-auto">
-            <button
-              onClick={handleGenerate}
-              disabled={isLoading || !file}
-              className="rounded-lg bg-sky-600 px-4 py-2 text-sm font-medium hover:bg-sky-700 disabled:opacity-60"
-            >
-              {isLoading ? "Generating..." : "Generate"}
-            </button>
+            {isLoading ? (
+              <button
+                onClick={handleStop}
+                className="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium hover:bg-red-700"
+              >
+                Stop
+              </button>
+            ) : (
+              <>
+                <button
+                  onClick={handleGenerate}
+                  disabled={!file}
+                  className="rounded-lg bg-sky-600 px-4 py-2 text-sm font-medium hover:bg-sky-700 disabled:opacity-60"
+                >
+                  Generate
+                </button>
+
+                {(file || response) && (
+                  <button
+                    onClick={handleClear}
+                    className="rounded-lg border border-gray-600 bg-gray-800 px-4 py-2 text-sm text-gray-300 hover:bg-gray-700"
+                  >
+                    Clear
+                  </button>
+                )}
+              </>
+            )}
+
             {response?.testCases?.length > 0 && (
               <button
                 onClick={handleDownloadExcel}
@@ -228,7 +237,9 @@ export default function FileTestCaseGen() {
             </h2>
 
             {isLoading ? (
-              <div className="text-center text-gray-400">Generating test cases...</div>
+              <div className="text-center text-gray-400 animate-pulse">
+                Generating test cases...
+              </div>
             ) : response?.testCases?.length ? (
               <div className="space-y-3">
                 {response.testCases.map((tc) => (
@@ -266,15 +277,21 @@ export default function FileTestCaseGen() {
                               <tr>
                                 <th className="border border-gray-600 px-2 py-1 w-12">Step</th>
                                 <th className="border border-gray-600 px-2 py-1">Action</th>
-                                <th className="border border-gray-600 px-2 py-1">Expected Result</th>
+                                <th className="border border-gray-600 px-2 py-1">
+                                  Expected Result
+                                </th>
                               </tr>
                             </thead>
                             <tbody>
                               {tc.steps.map((s) => (
                                 <tr key={s.stepNo} className="hover:bg-gray-800/40">
-                                  <td className="border border-gray-700 px-2 py-1 text-center">{s.stepNo}</td>
+                                  <td className="border border-gray-700 px-2 py-1 text-center">
+                                    {s.stepNo}
+                                  </td>
                                   <td className="border border-gray-700 px-2 py-1">{s.action}</td>
-                                  <td className="border border-gray-700 px-2 py-1">{s.expectedResult}</td>
+                                  <td className="border border-gray-700 px-2 py-1">
+                                    {s.expectedResult}
+                                  </td>
                                 </tr>
                               ))}
                             </tbody>
