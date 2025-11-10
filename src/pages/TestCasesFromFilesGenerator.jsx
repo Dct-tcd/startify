@@ -1,64 +1,57 @@
+import { useState, useEffect } from "react";
 import { createClient } from "@supabase/supabase-js";
-import mammoth from "mammoth";
-import * as XLSX from "xlsx"; // ✅ Excel export
-import { useState, useRef } from "react";
-
+import * as XLSX from "xlsx";
+import { ChevronDown, ChevronUp } from "lucide-react";
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 export default function FileTestCaseGen() {
-  const [model, setModel] = useState("gpt-4o");
+  const [model, setModel] = useState("gemini");
   const [file, setFile] = useState(null);
+  const [fileUrl, setFileUrl] = useState(null);
   const [fileName, setFileName] = useState("");
-  const [fileText, setFileText] = useState("");
   const [response, setResponse] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [err, setErr] = useState("");
+  const [expanded, setExpanded] = useState({});
   const [copied, setCopied] = useState(false);
   const fileInputRef = useRef(null);
   const [controller, setController] = useState(null);
 
 
 
-  const handleFileChange = async (e) => {
+  useEffect(() => {
+    if (file) {
+      const url = URL.createObjectURL(file);
+      setFileUrl(url);
+      return () => URL.revokeObjectURL(url);
+    }
+  }, [file]);
+
+  const toBase64 = (file) =>
+    new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = () => resolve(reader.result.split(",")[1]);
+      reader.onerror = (error) => reject(error);
+    });
+
+  const handleFileChange = (e) => {
     const f = e.target.files?.[0];
     setResponse(null);
     setErr("");
-    setFileText("");
+    if (!f) return setFile(null);
 
-    if (!f) {
-      setFile(null);
-      setFileName("");
-      return;
-    }
-
-    const validMime =
-      f.type ===
-      "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
-    const validExt = f.name.toLowerCase().endsWith(".docx");
-
-    if (!validMime || !validExt) {
-      setErr("Only Word (.docx) files are allowed.");
+    if (!f.name.toLowerCase().endsWith(".pdf")) {
+      setErr("Only PDF files are allowed.");
       e.target.value = "";
-      setFile(null);
-      setFileName("");
       return;
     }
 
     setFile(f);
     setFileName(f.name);
-
-    try {
-      const result = await mammoth.extractRawText({
-        arrayBuffer: await f.arrayBuffer(),
-      });
-      setFileText(result.value);
-    } catch (e) {
-      console.error("Error extracting text:", e);
-      setErr("Failed to read file content.");
-    }
   };
 
   // const handleGenerate = async () => {
@@ -92,37 +85,22 @@ export default function FileTestCaseGen() {
   // };
 
   const handleGenerate = async () => {
-  setErr("");
-  setResponse(null);
+    setErr("");
+    setResponse(null);
+    if (!file) return setErr("Please upload a PDF first.");
 
-  if (!file) {
-    setErr("Please select a Word (.docx) file first.");
-    return;
-  }
-
-  // ✅ Create an AbortController before calling
-  const abortCtrl = new AbortController();
-  setController(abortCtrl);
-  setIsLoading(true);
-
-  try {
-    const { data, error } = await supabase.functions.invoke("file-test-gen", {
-      body: {
-        fileName,
-        content: fileText,
-        model,
-      },
-      signal: abortCtrl.signal, // ✅ attach signal for abort
-    });
-
-    if (error) throw error;
-    setResponse({ testCases: data?.testCases ?? [] });
-  } catch (e) {
-    if (e.name === "AbortError") {
-      setErr("Generation stopped by user.");
-    } else {
-      console.error("Error generating test cases:", e);
-      setErr(e.message || "Something went wrong");
+    setIsLoading(true);
+    try {
+      const base64 = await toBase64(file);
+      const { data, error } = await supabase.functions.invoke("file-test-gen", {
+        body: { fileName: file.name, fileContent: base64, model },
+      });
+      if (error) throw new Error(error.message);
+      setResponse(data);
+    } catch (e) {
+      setErr(e.message || "Failed to generate test cases.");
+    } finally {
+      setIsLoading(false);
     }
   } finally {
     setIsLoading(false);
@@ -130,243 +108,188 @@ export default function FileTestCaseGen() {
   }
 };
 
-const handleStop = () => {
-  if (controller) {
-    controller.abort(); // ✅ aborts the current request
-    setController(null);
-    setIsLoading(false);
-  }
-};
-
-  // const handleClear = () => {
-  //   setFile(null);
-  //   setFileName("");
-  //   setFileText("");
-  //   setResponse(null);
-  //   setErr("");
-  // };
-const handleClear = () => {
-  setFile(null);
-  setFileName("");
-  setFileText("");
-  setResponse(null);
-  setErr("");
-
-  // ✅ Clear the actual input field
-  if (fileInputRef.current) {
-    fileInputRef.current.value = "";
-  }
-};
-
-  const handleCopy = async () => {
+  const handleDownloadExcel = () => {
     if (!response?.testCases?.length) return;
-
-    try {
-      const plainText = response.testCases
-        .map((tc, idx) => {
-          const steps =
-            tc.steps?.map((s, i) => `${i + 1}. ${s}`).join("\n") || "";
-          return `${idx + 1}. ${tc.title || "Untitled"}\nSteps:\n${steps}\nExpected: ${
-            tc.expected || "N/A"
-          }`;
+    const rows = [];
+    response.testCases.forEach((tc) => {
+      tc.steps.forEach((s) =>
+        rows.push({
+          "Test Case ID": tc.testCaseId,
+          Title: tc.title,
+          Description: tc.description,
+          Preconditions: tc.preconditions,
+          "Step No": s.stepNo,
+          Action: s.action,
+          "Expected Result": s.expectedResult,
         })
-        .join("\n\n");
-
-      await navigator.clipboard.writeText(plainText);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1500);
-    } catch {
-      setErr("Failed to copy to clipboard.");
-    }
+      );
+    });
+    const ws = XLSX.utils.json_to_sheet(rows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "TestCases");
+    XLSX.writeFile(wb, `${fileName.replace(/\.pdf/i, "")}_TestCases.xlsx`);
   };
 
-  const handleDownloadExcel = () => {
-    if (!response?.testCases?.length) {
-      setErr("No test cases available to download.");
-      return;
-    }
-
-    const sheetData = response.testCases.map((tc, index) => ({
-      "S.No": index + 1,
-      Title: tc.title || "Untitled",
-      Steps: tc.steps?.join("\n") || "",
-      Expected: tc.expected || "",
-    }));
-
-    const worksheet = XLSX.utils.json_to_sheet(sheetData);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "TestCases");
-    XLSX.writeFile(workbook, `${fileName.replace(".docx", "")}_TestCases.xlsx`);
+  const toggleExpand = (id) => {
+    setExpanded((prev) => ({ ...prev, [id]: !prev[id] }));
   };
 
   return (
     <div className="min-h-screen w-full bg-gray-900 text-gray-100">
       <div className="mx-auto max-w-screen-xl px-2 py-4">
-        <h1 className="mb-4 text-2xl font-bold tracking-tight text-gray-100">
-          File-based Test Case Generator
-        </h1>
+        <h1 className="mb-4 text-2xl font-bold">File-based Test Case Generator</h1>
 
-        {/* Controls */}
         <div className="mb-6 flex flex-col gap-4 md:flex-row md:items-end">
-          <div>
-            <label className="mb-1 block text-xs font-medium text-gray-300">
-              AI Model
-            </label>
-            <select
-              className="w-40 rounded-md border border-gray-700 bg-gray-800 px-2 py-1 text-sm text-gray-100 shadow-sm outline-none focus:ring-2 focus:ring-sky-500"
-              value={model}
-              onChange={(e) => setModel(e.target.value)}
-              disabled={isLoading}
-            >
-              <option value="gpt-4o">GPT-4o</option>
-              <option value="gpt-4o-mini">GPT-4o Mini</option>
-              <option value="gpt-5">GPT-5</option>
-              <option value="gemini">Gemini</option>
-            </select>
-          </div>
+        <div className="flex flex-wrap gap-4 items-center">
+  {/* Model Selector */}
+  <div className="flex flex-col">
+    <label className="text-xs font-medium text-gray-400 mb-1">
+      Model
+    </label>
+    <select
+      value={model}
+      onChange={(e) => setModel(e.target.value)}
+      className="w-44 rounded-xl bg-gray-800 px-3 py-2 text-sm text-gray-200 shadow-md outline-none focus:ring-2 focus:ring-sky-500 transition"
+    >
+      <option value="gemini">Gemini</option>
+      <option value="gpt-4o">GPT-4o</option>
+      <option value="gpt-5">GPT-5</option>
+    </select>
+  </div>
 
-          <div>
-            <label className="mb-1 block text-xs font-medium text-gray-300">
-              Upload Word (.docx)
-            </label>
-            {/* <input
-              type="file"
-              accept=".docx"
-              className="block w-60 rounded-md border border-gray-700 bg-gray-800 px-2 py-1 text-sm text-gray-100 shadow-sm file:mr-2 file:rounded-md file:border-0 file:bg-sky-600 file:px-3 file:py-1 file:text-white hover:file:bg-sky-700"
-              onChange={handleFileChange}
-              disabled={isLoading}
-            /> */
-            <input
-              ref={fileInputRef} // ✅ attach ref
-              type="file"
-              accept=".docx"
-              className="block w-60 rounded-md border border-gray-700 bg-gray-800 px-2 py-1 text-sm text-gray-100 shadow-sm file:mr-2 file:rounded-md file:border-0 file:bg-sky-600 file:px-3 file:py-1 file:text-white hover:file:bg-sky-700 disabled:opacity-50 disabled:cursor-not-allowed"
-              onChange={handleFileChange}
-              disabled={isLoading}
-            />
+  {/* File Upload */}
+  <div className="flex flex-col">
+    <label className="text-xs font-medium text-gray-400 mb-1">
+      Upload PDF
+    </label>
+    <input
+      type="file"
+      accept=".pdf"
+      onChange={handleFileChange}
+      className="w-64 rounded-xl bg-gray-800 px-3 py-2 text-sm text-gray-200 shadow-md file:mr-3 file:rounded-lg file:border-0 file:bg-sky-600 file:px-3 file:py-1.5 file:text-sm file:font-medium hover:file:bg-sky-700 focus:ring-2 focus:ring-sky-500 transition"
+    />
+  </div>
+</div>
 
-            }
-          </div>
 
           <div className="flex gap-2 md:ml-auto">
-            {/* <button
-              className="rounded-lg bg-sky-600 px-4 py-2 text-sm font-medium text-white shadow hover:bg-sky-700 disabled:opacity-60"
+            <button
               onClick={handleGenerate}
-              type="button"
               disabled={isLoading || !file}
+              className="rounded-lg bg-sky-600 px-4 py-2 text-sm font-medium hover:bg-sky-700 disabled:opacity-60"
             >
-              {isLoading ? "Generating Test Cases..." : "Generate Test Cases"}
-            </button> */
-            <button
-  className={`rounded-lg px-4 py-2 text-sm font-medium text-white shadow disabled:opacity-60 min-w-[180px] 
-    ${isLoading ? "bg-red-600 hover:bg-red-700" : "bg-sky-600 hover:bg-sky-700"}`}
-  onClick={isLoading ? handleStop : handleGenerate}
-  type="button"
-  disabled={!file && !isLoading}
->
-  {isLoading ? "Stop" : "Generate Test Cases"}
-</button>
-
-
-            }
-            <button
-              className="rounded-lg border border-gray-700 bg-gray-800 px-4 py-2 text-sm font-medium text-gray-100 shadow hover:bg-gray-700"
-              onClick={handleClear}
-              type="button"
-            >
-              Clear
+              {isLoading ? "Generating..." : "Generate"}
             </button>
+            {response?.testCases?.length > 0 && (
+              <button
+                onClick={handleDownloadExcel}
+                className="rounded-lg border border-sky-500 bg-sky-900/40 px-4 py-2 text-sm text-sky-300 hover:bg-sky-800/50"
+              >
+                Download Excel
+              </button>
+            )}
           </div>
         </div>
 
         {err && (
-          <div className="mb-4 rounded-lg border border-red-400 bg-red-900/30 p-3 text-sm text-red-300 shadow-sm">
+          <div className="mb-4 rounded-lg border border-red-500 bg-red-900/40 p-3 text-sm text-red-200">
             {err}
           </div>
         )}
 
+        {/* Display Section */}
         <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-          {/* Left Panel */}
-          <div className="mx-auto w-full max-w-[600px] flex h-[70vh] min-h-[420px] flex-col overflow-hidden rounded-2xl border border-gray-700 bg-gray-800 shadow">
-            <div className="border-b border-gray-700 px-4 py-3">
-              <h2 className="text-sm font-semibold text-gray-200">
-                Uploaded File Text
-              </h2>
+          {/* File Preview */}
+          <div className="rounded-2xl border border-gray-700 bg-gray-800 h-[75vh] overflow-hidden">
+            <div className="border-b border-gray-700 px-4 py-3 text-sm font-semibold">
+              Uploaded File
             </div>
-            <div className="flex-1 min-h-0 overflow-y-auto p-4 text-sm text-gray-200 whitespace-pre-wrap">
-              {fileText || "No file content loaded."}
+            <div className="p-4 text-sm text-gray-200">
+              {file ? (
+                <>
+                  <p><b>Name:</b> {fileName}</p>
+                  <p><b>Size:</b> {(file.size / 1024).toFixed(2)} KB</p>
+                  <div className="mt-3 h-[60vh] border border-gray-700 rounded-lg overflow-hidden">
+                    <iframe src={fileUrl} className="w-full h-full" title="Preview" />
+                  </div>
+                </>
+              ) : (
+                <div className="flex h-full items-center justify-center text-gray-500 italic">
+                  No file selected
+                </div>
+              )}
             </div>
           </div>
 
-          {/* Right Panel */}
-          <div className="mx-auto w-full max-w-[600px] flex flex-col h-[70vh] min-h-[420px] overflow-hidden rounded-2xl border border-gray-700 bg-gray-800 shadow">
-            <div className="flex items-center justify-between border-b border-gray-700 px-4 py-3">
-              <h2 className="text-sm font-semibold text-gray-200">
-                Generated Test Cases
-              </h2>
+          {/* Test Case Output */}
+          <div className="rounded-2xl border border-gray-700 bg-gray-800 h-[75vh] overflow-y-auto p-4">
+            <h2 className="mb-3 text-sm font-semibold border-b border-gray-700 pb-2">
+              Generated Test Cases
+            </h2>
 
-              {response?.testCases?.length > 0 && (
-                <div className="flex gap-2">
-                  <button
-                    onClick={handleCopy}
-                    className="rounded bg-gray-700 px-2 py-1 text-xs text-gray-200 hover:bg-gray-600"
-                  >
-                    {copied ? "Copied!" : "Copy All"}
-                  </button>
-                  <button
-                    onClick={handleDownloadExcel}
-                    className="rounded bg-sky-600 px-2 py-1 text-xs text-white hover:bg-sky-700"
-                  >
-                    Download Excel
-                  </button>
-                </div>
-              )}
-            </div>
-
-            <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-4">
-              {isLoading ? (
-                <div className="h-full w-full rounded-xl border border-gray-700 bg-gray-900 p-4 text-sm text-gray-400 text-center">
-                  Generating test cases…
-                </div>
-              ) : response?.testCases?.length > 0 ? (
-                response.testCases.map((tc, i) => (
+            {isLoading ? (
+              <div className="text-center text-gray-400">Generating test cases...</div>
+            ) : response?.testCases?.length ? (
+              <div className="space-y-3">
+                {response.testCases.map((tc) => (
                   <div
-                    key={i}
-                    className="rounded-xl border border-gray-700 bg-gradient-to-b from-gray-800 to-gray-900 p-4 shadow-md hover:shadow-sky-700/20 transition-shadow duration-200"
+                    key={tc.testCaseId}
+                    className="rounded-xl border border-gray-700 bg-gray-900/50"
                   >
-                    <h3 className="text-base font-semibold text-sky-400 mb-2">
-                      {i + 1}. {tc.title || "Untitled"}
-                    </h3>
+                    <div
+                      onClick={() => toggleExpand(tc.testCaseId)}
+                      className="flex cursor-pointer items-center justify-between px-4 py-2 hover:bg-gray-800/60"
+                    >
+                      <div>
+                        <p className="text-sky-400 font-semibold">{tc.testCaseId}</p>
+                        <p className="text-gray-200 text-sm">{tc.title}</p>
+                      </div>
+                      {expanded[tc.testCaseId] ? (
+                        <ChevronUp className="h-4 w-4 text-gray-400" />
+                      ) : (
+                        <ChevronDown className="h-4 w-4 text-gray-400" />
+                      )}
+                    </div>
 
-                    {tc.steps?.length > 0 && (
-                      <div className="mb-2">
-                        <span className="block text-xs uppercase tracking-wide text-gray-400 mb-1">
-                          Steps
-                        </span>
-                        <ol className="list-decimal list-inside ml-4 space-y-0.5 text-sm text-gray-200">
-                          {tc.steps.map((s, j) => (
-                            <li key={j}>{s}</li>
-                          ))}
-                        </ol>
+                    {expanded[tc.testCaseId] && (
+                      <div className="px-4 pb-3 pt-2 text-sm border-t border-gray-700">
+                        <p>
+                          <b>Description:</b> {tc.description}
+                        </p>
+                        <p className="mt-1">
+                          <b>Preconditions:</b> {tc.preconditions}
+                        </p>
+
+                        <div className="mt-3 overflow-x-auto">
+                          <table className="w-full text-xs border-collapse border border-gray-700">
+                            <thead className="bg-gray-700 text-gray-100">
+                              <tr>
+                                <th className="border border-gray-600 px-2 py-1 w-12">Step</th>
+                                <th className="border border-gray-600 px-2 py-1">Action</th>
+                                <th className="border border-gray-600 px-2 py-1">Expected Result</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {tc.steps.map((s) => (
+                                <tr key={s.stepNo} className="hover:bg-gray-800/40">
+                                  <td className="border border-gray-700 px-2 py-1 text-center">{s.stepNo}</td>
+                                  <td className="border border-gray-700 px-2 py-1">{s.action}</td>
+                                  <td className="border border-gray-700 px-2 py-1">{s.expectedResult}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
                       </div>
                     )}
-                    <console className="log">{tc.expected}</console>
-                    {tc.expected && (
-                      <p className="mt-2 text-sm text-gray-300">
-                        <span className="block text-xs uppercase tracking-wide text-gray-400 mb-1">
-                          Expected Result
-                        </span>
-                        <em className="text-gray-100">{tc.expected}</em>
-                      </p>
-                    )}
                   </div>
-                ))
-              ) : (
-                <div className="h-full w-full rounded-xl border border-gray-700 bg-gray-900 p-4 text-sm italic text-gray-500 text-center">
-                  No test cases generated yet.
-                </div>
-              )}
-            </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center text-gray-500 italic">
+                No test cases generated yet.
+              </div>
+            )}
           </div>
         </div>
       </div>

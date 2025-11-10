@@ -2,8 +2,6 @@
 
 A modern, intuitive coding platform that combines a powerful editor with testing capabilities. Built with React, Vite, and Supabase.
 
-![CodeIt-TestIt](insert_screenshot_url_here)
-
 ## ✨ Features
 
 - 💻 Monaco Editor integration for a VS Code-like coding experience
@@ -107,4 +105,4 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ---
 
-Made with ❤️ by [Your Name]
+Made with ❤️ by Dct_tcD
