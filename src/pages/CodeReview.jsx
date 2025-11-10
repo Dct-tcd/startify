@@ -85,6 +85,7 @@ export default function CodeReview() {
               className="w-40 rounded-md border border-gray-700 bg-gray-800 px-2 py-1 text-sm"
               value={language}
               onChange={(e) => setLanguage(e.target.value)}
+              disabled={isLoading}
             >
               {Object.keys(languageMap).map((lang) => (
                 <option key={lang}>{lang}</option>
@@ -99,6 +100,7 @@ export default function CodeReview() {
               className="w-40 rounded-md border border-gray-700 bg-gray-800 px-2 py-1 text-sm"
               value={model}
               onChange={e => setModel(e.target.value)}
+              disabled={isLoading}
             >
               <option value="gpt-4o">GPT-4o</option>
               <option value="gpt-4o-mini">GPT-4o Mini</option>

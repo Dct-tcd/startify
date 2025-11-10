@@ -1,7 +1,8 @@
-import { useState } from "react";
 import { createClient } from "@supabase/supabase-js";
 import mammoth from "mammoth";
 import * as XLSX from "xlsx"; // ✅ Excel export
+import { useState, useRef } from "react";
+
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
@@ -16,6 +17,10 @@ export default function FileTestCaseGen() {
   const [isLoading, setIsLoading] = useState(false);
   const [err, setErr] = useState("");
   const [copied, setCopied] = useState(false);
+  const fileInputRef = useRef(null);
+  const [controller, setController] = useState(null);
+
+
 
   const handleFileChange = async (e) => {
     const f = e.target.files?.[0];
@@ -56,43 +61,102 @@ export default function FileTestCaseGen() {
     }
   };
 
+  // const handleGenerate = async () => {
+  //   setErr("");
+  //   setResponse(null);
+
+  //   if (!file) {
+  //     setErr("Please select a Word (.docx) file first.");
+  //     return;
+  //   }
+
+  //   setIsLoading(true);
+
+  //   try {
+  //     const { data, error } = await supabase.functions.invoke("file-test-gen", {
+  //       body: {
+  //         fileName,
+  //         content: fileText,
+  //         model,
+  //       },
+  //     });
+
+  //     if (error) throw error;
+  //     setResponse({ testCases: data?.testCases ?? [] });
+  //   } catch (e) {
+  //     console.error("Error generating test cases:", e);
+  //     setErr(e.message || "Something went wrong");
+  //   } finally {
+  //     setIsLoading(false);
+  //   }
+  // };
+
   const handleGenerate = async () => {
-    setErr("");
-    setResponse(null);
+  setErr("");
+  setResponse(null);
 
-    if (!file) {
-      setErr("Please select a Word (.docx) file first.");
-      return;
-    }
+  if (!file) {
+    setErr("Please select a Word (.docx) file first.");
+    return;
+  }
 
-    setIsLoading(true);
+  // ✅ Create an AbortController before calling
+  const abortCtrl = new AbortController();
+  setController(abortCtrl);
+  setIsLoading(true);
 
-    try {
-      const { data, error } = await supabase.functions.invoke("file-test-gen", {
-        body: {
-          fileName,
-          content: fileText,
-          model,
-        },
-      });
+  try {
+    const { data, error } = await supabase.functions.invoke("file-test-gen", {
+      body: {
+        fileName,
+        content: fileText,
+        model,
+      },
+      signal: abortCtrl.signal, // ✅ attach signal for abort
+    });
 
-      if (error) throw error;
-      setResponse({ testCases: data?.testCases ?? [] });
-    } catch (e) {
+    if (error) throw error;
+    setResponse({ testCases: data?.testCases ?? [] });
+  } catch (e) {
+    if (e.name === "AbortError") {
+      setErr("Generation stopped by user.");
+    } else {
       console.error("Error generating test cases:", e);
       setErr(e.message || "Something went wrong");
-    } finally {
-      setIsLoading(false);
     }
-  };
+  } finally {
+    setIsLoading(false);
+    setController(null); // ✅ reset controller
+  }
+};
 
-  const handleClear = () => {
-    setFile(null);
-    setFileName("");
-    setFileText("");
-    setResponse(null);
-    setErr("");
-  };
+const handleStop = () => {
+  if (controller) {
+    controller.abort(); // ✅ aborts the current request
+    setController(null);
+    setIsLoading(false);
+  }
+};
+
+  // const handleClear = () => {
+  //   setFile(null);
+  //   setFileName("");
+  //   setFileText("");
+  //   setResponse(null);
+  //   setErr("");
+  // };
+const handleClear = () => {
+  setFile(null);
+  setFileName("");
+  setFileText("");
+  setResponse(null);
+  setErr("");
+
+  // ✅ Clear the actual input field
+  if (fileInputRef.current) {
+    fileInputRef.current.value = "";
+  }
+};
 
   const handleCopy = async () => {
     if (!response?.testCases?.length) return;
@@ -152,6 +216,7 @@ export default function FileTestCaseGen() {
               className="w-40 rounded-md border border-gray-700 bg-gray-800 px-2 py-1 text-sm text-gray-100 shadow-sm outline-none focus:ring-2 focus:ring-sky-500"
               value={model}
               onChange={(e) => setModel(e.target.value)}
+              disabled={isLoading}
             >
               <option value="gpt-4o">GPT-4o</option>
               <option value="gpt-4o-mini">GPT-4o Mini</option>
@@ -164,23 +229,46 @@ export default function FileTestCaseGen() {
             <label className="mb-1 block text-xs font-medium text-gray-300">
               Upload Word (.docx)
             </label>
-            <input
+            {/* <input
               type="file"
               accept=".docx"
               className="block w-60 rounded-md border border-gray-700 bg-gray-800 px-2 py-1 text-sm text-gray-100 shadow-sm file:mr-2 file:rounded-md file:border-0 file:bg-sky-600 file:px-3 file:py-1 file:text-white hover:file:bg-sky-700"
               onChange={handleFileChange}
+              disabled={isLoading}
+            /> */
+            <input
+              ref={fileInputRef} // ✅ attach ref
+              type="file"
+              accept=".docx"
+              className="block w-60 rounded-md border border-gray-700 bg-gray-800 px-2 py-1 text-sm text-gray-100 shadow-sm file:mr-2 file:rounded-md file:border-0 file:bg-sky-600 file:px-3 file:py-1 file:text-white hover:file:bg-sky-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              onChange={handleFileChange}
+              disabled={isLoading}
             />
+
+            }
           </div>
 
           <div className="flex gap-2 md:ml-auto">
-            <button
+            {/* <button
               className="rounded-lg bg-sky-600 px-4 py-2 text-sm font-medium text-white shadow hover:bg-sky-700 disabled:opacity-60"
               onClick={handleGenerate}
               type="button"
               disabled={isLoading || !file}
             >
               {isLoading ? "Generating Test Cases..." : "Generate Test Cases"}
-            </button>
+            </button> */
+            <button
+  className={`rounded-lg px-4 py-2 text-sm font-medium text-white shadow disabled:opacity-60 min-w-[180px] 
+    ${isLoading ? "bg-red-600 hover:bg-red-700" : "bg-sky-600 hover:bg-sky-700"}`}
+  onClick={isLoading ? handleStop : handleGenerate}
+  type="button"
+  disabled={!file && !isLoading}
+>
+  {isLoading ? "Stop" : "Generate Test Cases"}
+</button>
+
+
+            }
             <button
               className="rounded-lg border border-gray-700 bg-gray-800 px-4 py-2 text-sm font-medium text-gray-100 shadow hover:bg-gray-700"
               onClick={handleClear}
@@ -262,7 +350,7 @@ export default function FileTestCaseGen() {
                         </ol>
                       </div>
                     )}
-
+                    <console className="log">{tc.expected}</console>
                     {tc.expected && (
                       <p className="mt-2 text-sm text-gray-300">
                         <span className="block text-xs uppercase tracking-wide text-gray-400 mb-1">
