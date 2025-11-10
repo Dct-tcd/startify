@@ -94,6 +94,7 @@ export default function TestCaseGen() {
             <select
               className="w-40 rounded-md border border-gray-700 bg-gray-800 px-2 py-1 text-sm text-gray-100 shadow-sm outline-none focus:ring-2 focus:ring-sky-500"
               value={language}
+              disabled={isLoading}
               onChange={(e) => setLanguage(e.target.value)}
             >
               <option>JavaScript</option>
@@ -112,6 +113,7 @@ export default function TestCaseGen() {
               className="w-40 rounded-md border border-gray-700 bg-gray-800 px-2 py-1 text-sm text-gray-100 shadow-sm outline-none focus:ring-2 focus:ring-sky-500"
               value={model}
               onChange={(e) => setModel(e.target.value)}
+              disabled={isLoading}
             >
               <option value="gpt-4o">GPT-4o</option>
               <option value="gpt-4o-mini">GPT-4o Mini</option>

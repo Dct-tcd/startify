@@ -17,6 +17,10 @@ export default function FileTestCaseGen() {
   const [err, setErr] = useState("");
   const [expanded, setExpanded] = useState({});
   const [copied, setCopied] = useState(false);
+  const fileInputRef = useRef(null);
+  const [controller, setController] = useState(null);
+
+
 
   useEffect(() => {
     if (file) {
@@ -50,6 +54,36 @@ export default function FileTestCaseGen() {
     setFileName(f.name);
   };
 
+  // const handleGenerate = async () => {
+  //   setErr("");
+  //   setResponse(null);
+
+  //   if (!file) {
+  //     setErr("Please select a Word (.docx) file first.");
+  //     return;
+  //   }
+
+  //   setIsLoading(true);
+
+  //   try {
+  //     const { data, error } = await supabase.functions.invoke("file-test-gen", {
+  //       body: {
+  //         fileName,
+  //         content: fileText,
+  //         model,
+  //       },
+  //     });
+
+  //     if (error) throw error;
+  //     setResponse({ testCases: data?.testCases ?? [] });
+  //   } catch (e) {
+  //     console.error("Error generating test cases:", e);
+  //     setErr(e.message || "Something went wrong");
+  //   } finally {
+  //     setIsLoading(false);
+  //   }
+  // };
+
   const handleGenerate = async () => {
     setErr("");
     setResponse(null);
@@ -68,7 +102,11 @@ export default function FileTestCaseGen() {
     } finally {
       setIsLoading(false);
     }
-  };
+  } finally {
+    setIsLoading(false);
+    setController(null); // ✅ reset controller
+  }
+};
 
   const handleDownloadExcel = () => {
     if (!response?.testCases?.length) return;
