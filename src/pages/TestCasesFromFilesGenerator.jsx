@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { createClient } from "@supabase/supabase-js";
 import * as XLSX from "xlsx";
 import { ChevronDown, ChevronUp } from "lucide-react";
@@ -17,6 +17,9 @@ export default function FileTestCaseGen() {
   const [err, setErr] = useState("");
   const [expanded, setExpanded] = useState({});
   const [controller, setController] = useState(null);
+
+  // 🔥 Added Ref
+  const fileInputRef = useRef(null);
 
   useEffect(() => {
     if (file) {
@@ -96,6 +99,11 @@ export default function FileTestCaseGen() {
     setErr("");
     setExpanded({});
     setController(null);
+
+    // 🔥 FULL FIX — clears file name from input box
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
   };
 
   const handleDownloadExcel = () => {
@@ -151,6 +159,7 @@ export default function FileTestCaseGen() {
               <label className="text-xs font-medium text-gray-400 mb-1">Upload PDF</label>
               <input
                 type="file"
+                ref={fileInputRef}  
                 accept=".pdf"
                 onChange={handleFileChange}
                 disabled={isLoading}
