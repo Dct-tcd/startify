@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { createClient } from "@supabase/supabase-js";
 import * as XLSX from "xlsx";
 import { ChevronDown, ChevronUp } from "lucide-react";
@@ -20,6 +20,9 @@ export default function FileTestCaseGen() {
   const [expanded, setExpanded] = useState({});
   const [controller, setController] = useState(null);
   const [isDocx, setIsDocx] = useState(false); // new state to track DOCX files
+
+  // 🔥 Added Ref
+  const fileInputRef = useRef(null);
 
   useEffect(() => {
     if (file) {
