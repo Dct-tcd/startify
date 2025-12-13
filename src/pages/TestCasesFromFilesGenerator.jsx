@@ -331,11 +331,11 @@ export default function FileTestCaseGen() {
                 {response.testCases.map((tc) => (
                   <div
                     key={tc.testCaseId}
-                    className="rounded-xl border bg-gray-900/50"
+                    className="rounded-xl border border-gray-700 bg-gray-900/50"
                   >
                     <div
                       onClick={() => toggleExpand(tc.testCaseId)}
-                      className="flex cursor-pointer items-center justify-between px-4 py-2"
+                      className="hover:bg-gray-800/60 flex cursor-pointer items-center justify-between px-4 py-2"
                     >
                       <div>
                         <p className="text-sky-400 font-semibold">
@@ -344,22 +344,22 @@ export default function FileTestCaseGen() {
                         <p className="text-sm">{tc.title}</p>
                       </div>
                       {expanded[tc.testCaseId] ? (
-                        <ChevronUp className="h-4 w-4" />
+                        <ChevronUp className="h-4 w-4 text-gray-400" />
                       ) : (
-                        <ChevronDown className="h-4 w-4" />
+                        <ChevronDown className="h-4 w-4 text-gray-400" />
                       )}
                     </div>
 
                     {expanded[tc.testCaseId] && (
-                      <div className="px-4 pb-3 pt-2 text-sm border-t">
+                      <div className="px-4 pb-3 pt-2 text-sm border-t border-gray-700">
                         <p><b>Description:</b> {tc.description}</p>
                         <p className="mt-1">
                           <b>Preconditions:</b> {tc.preconditions}
                         </p>
 
                         <div className="mt-3 overflow-x-auto">
-                          <table className="w-full text-xs border-collapse border">
-                            <thead>
+                          <table className="w-full text-xs border-collapse border border-gray-700">
+                            <thead className="bg-gray-700 text-gray-100">
                               <tr>
                                 <th className="border px-2 py-1 w-12">Step</th>
                                 <th className="border px-2 py-1">Action</th>
