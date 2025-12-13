@@ -15,13 +15,15 @@ export default function FileTestCaseGen() {
   const [fileUrl, setFileUrl] = useState(null);
   const [fileName, setFileName] = useState("");
   const [response, setResponse] = useState(null);
-  const [isLoading, setIsLoading] = useState(false);
+
+  const [isLoading, setIsLoading] = useState(false); // generation
+  const [isConverting, setIsConverting] = useState(false); // DOCX → PDF
+
   const [err, setErr] = useState("");
   const [expanded, setExpanded] = useState({});
   const [controller, setController] = useState(null);
-  const [isDocx, setIsDocx] = useState(false); // new state to track DOCX files
+  const [isDocx, setIsDocx] = useState(false);
 
-  // 🔥 Added Ref
   const fileInputRef = useRef(null);
 
   useEffect(() => {
@@ -46,17 +48,26 @@ export default function FileTestCaseGen() {
 
     const pdfDoc = await PDFDocument.create();
     const page = pdfDoc.addPage();
-    const { width, height } = page.getSize();
+    const { height } = page.getSize();
     const fontSize = 12;
     let y = height - 40;
 
     text.split("\n").forEach((line) => {
-      page.drawText(line, { x: 40, y, size: fontSize, color: rgb(0, 0, 0) });
+      page.drawText(line, {
+        x: 40,
+        y,
+        size: fontSize,
+        color: rgb(0, 0, 0),
+      });
       y -= fontSize + 2;
     });
 
     const pdfBytes = await pdfDoc.save();
-    return new File([pdfBytes], docxFile.name.replace(/\.docx$/i, ".pdf"), { type: "application/pdf" });
+    return new File(
+      [pdfBytes],
+      docxFile.name.replace(/\.docx$/i, ".pdf"),
+      { type: "application/pdf" }
+    );
   };
 
   const handleFileChange = async (e) => {
@@ -67,24 +78,28 @@ export default function FileTestCaseGen() {
 
     if (!f) return setFile(null);
 
-    if (!f.name.toLowerCase().endsWith(".pdf") && !f.name.toLowerCase().endsWith(".docx")) {
+    if (
+      !f.name.toLowerCase().endsWith(".pdf") &&
+      !f.name.toLowerCase().endsWith(".docx")
+    ) {
       setErr("Only PDF or DOCX files are allowed.");
       e.target.value = "";
       return;
     }
 
     let processedFile = f;
+
     if (f.name.toLowerCase().endsWith(".docx")) {
-      setIsDocx(true); // mark as DOCX
-      setIsLoading(true);
+      setIsDocx(true);
+      setIsConverting(true);
       try {
         processedFile = await convertDocxToPdf(f);
       } catch (err) {
         setErr("Failed to convert DOCX to PDF: " + err.message);
-        setIsLoading(false);
+        setIsConverting(false);
         return;
       }
-      setIsLoading(false);
+      setIsConverting(false);
     }
 
     setFile(processedFile);
@@ -102,10 +117,17 @@ export default function FileTestCaseGen() {
 
     try {
       const base64 = await toBase64(file);
-      const { data, error } = await supabase.functions.invoke("file-test-gen", {
-        body: { fileName: file.name, fileContent: base64, model },
-        signal: newController.signal,
-      });
+      const { data, error } = await supabase.functions.invoke(
+        "file-test-gen",
+        {
+          body: {
+            fileName: file.name,
+            fileContent: base64,
+            model,
+          },
+          signal: newController.signal,
+        }
+      );
 
       if (error) throw new Error(error.message);
       setResponse(data);
@@ -138,10 +160,12 @@ export default function FileTestCaseGen() {
     setExpanded({});
     setController(null);
     setIsDocx(false);
+    if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
   const handleDownloadExcel = () => {
     if (!response?.testCases?.length) return;
+
     const rows = [];
     response.testCases.forEach((tc) => {
       tc.steps.forEach((s) =>
@@ -156,10 +180,14 @@ export default function FileTestCaseGen() {
         })
       );
     });
+
     const ws = XLSX.utils.json_to_sheet(rows);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "TestCases");
-    XLSX.writeFile(wb, `${fileName.replace(/\.pdf$/i, "")}_TestCases.xlsx`);
+    XLSX.writeFile(
+      wb,
+      `${fileName.replace(/\.pdf$/i, "")}_TestCases.xlsx`
+    );
   };
 
   const toggleExpand = (id) => {
@@ -169,18 +197,21 @@ export default function FileTestCaseGen() {
   return (
     <div className="min-h-screen w-full bg-gray-900 text-gray-100">
       <div className="mx-auto max-w-screen-xl px-2 py-4">
-        <h1 className="mb-4 text-2xl font-bold">File-based Test Case Generator</h1>
+        <h1 className="mb-4 text-2xl font-bold">
+          File-based Test Case Generator
+        </h1>
 
         <div className="mb-6 flex flex-col gap-4 md:flex-row md:items-end">
-          {/* Model Selector */}
           <div className="flex flex-wrap gap-4 items-center">
             <div className="flex flex-col">
-              <label className="text-xs font-medium text-gray-400 mb-1">Model</label>
+              <label className="text-xs font-medium text-gray-400 mb-1">
+                Model
+              </label>
               <select
                 value={model}
                 onChange={(e) => setModel(e.target.value)}
                 disabled={isLoading}
-                className="w-44 rounded-xl bg-gray-800 px-3 py-2 text-sm text-gray-200 shadow-md outline-none focus:ring-2 focus:ring-sky-500 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-44 rounded-xl bg-gray-800 px-3 py-2 text-sm"
               >
                 <option value="gemini">Gemini</option>
                 <option value="gpt-4o">GPT-4o</option>
@@ -188,25 +219,26 @@ export default function FileTestCaseGen() {
               </select>
             </div>
 
-            {/* File Upload */}
             <div className="flex flex-col">
-              <label className="text-xs font-medium text-gray-400 mb-1">Upload PDF or DOCX</label>
+              <label className="text-xs font-medium text-gray-400 mb-1">
+                Upload PDF or DOCX
+              </label>
               <input
                 type="file"
                 accept=".pdf,.docx"
+                ref={fileInputRef}
                 onChange={handleFileChange}
-                disabled={isLoading}
+                disabled={isLoading || isConverting}
                 className="w-64 rounded-xl bg-gray-800 px-3 py-2 text-sm text-gray-200 shadow-md file:mr-3 file:rounded-lg file:border-0 file:bg-sky-600 file:px-3 file:py-1.5 file:text-sm file:font-medium hover:file:bg-sky-700 focus:ring-2 focus:ring-sky-500 transition disabled:opacity-50 disabled:cursor-not-allowed"
               />
             </div>
           </div>
 
-          {/* Action Buttons */}
           <div className="flex gap-2 md:ml-auto">
             {isLoading ? (
               <button
                 onClick={handleStop}
-                className="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium hover:bg-red-700"
+                className="rounded-lg bg-red-600 px-4 py-2 text-sm"
               >
                 Stop
               </button>
@@ -214,8 +246,8 @@ export default function FileTestCaseGen() {
               <>
                 <button
                   onClick={handleGenerate}
-                  disabled={!file}
-                  className="rounded-lg bg-sky-600 px-4 py-2 text-sm font-medium hover:bg-sky-700 disabled:opacity-60"
+                  disabled={!file || isConverting}
+                  className="rounded-lg bg-sky-600 px-4 py-2 text-sm"
                 >
                   Generate
                 </button>
@@ -223,7 +255,7 @@ export default function FileTestCaseGen() {
                 {(file || response) && (
                   <button
                     onClick={handleClear}
-                    className="rounded-lg border border-gray-600 bg-gray-800 px-4 py-2 text-sm text-gray-300 hover:bg-gray-700"
+                    className="rounded-lg border border-gray-600 bg-gray-800 px-4 py-2 text-sm"
                   >
                     Clear
                   </button>
@@ -234,7 +266,7 @@ export default function FileTestCaseGen() {
             {response?.testCases?.length > 0 && (
               <button
                 onClick={handleDownloadExcel}
-                className="rounded-lg border border-sky-500 bg-sky-900/40 px-4 py-2 text-sm text-sky-300 hover:bg-sky-800/50"
+                className="rounded-lg border border-sky-500 bg-sky-900/40 px-4 py-2 text-sm"
               >
                 Download Excel
               </button>
@@ -243,7 +275,7 @@ export default function FileTestCaseGen() {
         </div>
 
         {err && (
-          <div className="mb-4 rounded-lg border border-red-500 bg-red-900/40 p-3 text-sm text-red-200">
+          <div className="mb-4 rounded-lg border border-red-500 bg-red-900/40 p-3 text-sm">
             {err}
           </div>
         )}
@@ -254,22 +286,25 @@ export default function FileTestCaseGen() {
             <div className="border-b border-gray-700 px-4 py-3 text-sm font-semibold">
               Uploaded File
             </div>
-            <div className="p-4 text-sm text-gray-200">
+            <div className="p-4 text-sm">
               {file ? (
                 <>
                   <p><b>Name:</b> {fileName}</p>
                   <p><b>Size:</b> {(file.size / 1024).toFixed(2)} KB</p>
 
-                  {/* Show preview only for non-DOCX files */}
                   {!isDocx && (
-                    <div className="mt-3 h-[60vh] border border-gray-700 rounded-lg overflow-hidden">
-                      <iframe src={fileUrl} className="w-full h-full" title="Preview" />
+                    <div className="mt-3 h-[60vh] border rounded-lg overflow-hidden">
+                      <iframe
+                        src={fileUrl}
+                        className="w-full h-full"
+                        title="Preview"
+                      />
                     </div>
                   )}
 
                   {isDocx && (
                     <div className="mt-3 h-[60vh] flex items-center justify-center text-gray-400">
-                      <p>Preview not available for DOCX files.</p>
+                      Preview not available for DOCX files.
                     </div>
                   )}
                 </>
@@ -281,9 +316,9 @@ export default function FileTestCaseGen() {
             </div>
           </div>
 
-          {/* Test Case Output */}
+          {/* Output */}
           <div className="rounded-2xl border border-gray-700 bg-gray-800 h-[75vh] overflow-y-auto p-4">
-            <h2 className="mb-3 text-sm font-semibold border-b border-gray-700 pb-2">
+            <h2 className="mb-3 text-sm font-semibold border-b pb-2">
               Generated Test Cases
             </h2>
 
@@ -296,43 +331,55 @@ export default function FileTestCaseGen() {
                 {response.testCases.map((tc) => (
                   <div
                     key={tc.testCaseId}
-                    className="rounded-xl border border-gray-700 bg-gray-900/50"
+                    className="rounded-xl border bg-gray-900/50"
                   >
                     <div
                       onClick={() => toggleExpand(tc.testCaseId)}
-                      className="flex cursor-pointer items-center justify-between px-4 py-2 hover:bg-gray-800/60"
+                      className="flex cursor-pointer items-center justify-between px-4 py-2"
                     >
                       <div>
-                        <p className="text-sky-400 font-semibold">{tc.testCaseId}</p>
-                        <p className="text-gray-200 text-sm">{tc.title}</p>
+                        <p className="text-sky-400 font-semibold">
+                          {tc.testCaseId}
+                        </p>
+                        <p className="text-sm">{tc.title}</p>
                       </div>
                       {expanded[tc.testCaseId] ? (
-                        <ChevronUp className="h-4 w-4 text-gray-400" />
+                        <ChevronUp className="h-4 w-4" />
                       ) : (
-                        <ChevronDown className="h-4 w-4 text-gray-400" />
+                        <ChevronDown className="h-4 w-4" />
                       )}
                     </div>
 
                     {expanded[tc.testCaseId] && (
-                      <div className="px-4 pb-3 pt-2 text-sm border-t border-gray-700">
+                      <div className="px-4 pb-3 pt-2 text-sm border-t">
                         <p><b>Description:</b> {tc.description}</p>
-                        <p className="mt-1"><b>Preconditions:</b> {tc.preconditions}</p>
+                        <p className="mt-1">
+                          <b>Preconditions:</b> {tc.preconditions}
+                        </p>
 
                         <div className="mt-3 overflow-x-auto">
-                          <table className="w-full text-xs border-collapse border border-gray-700">
-                            <thead className="bg-gray-700 text-gray-100">
+                          <table className="w-full text-xs border-collapse border">
+                            <thead>
                               <tr>
-                                <th className="border border-gray-600 px-2 py-1 w-12">Step</th>
-                                <th className="border border-gray-600 px-2 py-1">Action</th>
-                                <th className="border border-gray-600 px-2 py-1">Expected Result</th>
+                                <th className="border px-2 py-1 w-12">Step</th>
+                                <th className="border px-2 py-1">Action</th>
+                                <th className="border px-2 py-1">
+                                  Expected Result
+                                </th>
                               </tr>
                             </thead>
                             <tbody>
                               {tc.steps.map((s) => (
-                                <tr key={s.stepNo} className="hover:bg-gray-800/40">
-                                  <td className="border border-gray-700 px-2 py-1 text-center">{s.stepNo}</td>
-                                  <td className="border border-gray-700 px-2 py-1">{s.action}</td>
-                                  <td className="border border-gray-700 px-2 py-1">{s.expectedResult}</td>
+                                <tr key={s.stepNo}>
+                                  <td className="border px-2 py-1 text-center">
+                                    {s.stepNo}
+                                  </td>
+                                  <td className="border px-2 py-1">
+                                    {s.action}
+                                  </td>
+                                  <td className="border px-2 py-1">
+                                    {s.expectedResult}
+                                  </td>
                                 </tr>
                               ))}
                             </tbody>
@@ -344,7 +391,9 @@ export default function FileTestCaseGen() {
                 ))}
               </div>
             ) : (
-              <div className="text-center text-gray-500 italic">No test cases generated yet.</div>
+              <div className="text-center text-gray-500 italic">
+                No test cases generated yet.
+              </div>
             )}
           </div>
         </div>
