@@ -16,8 +16,8 @@ export default function FileTestCaseGen() {
   const [fileName, setFileName] = useState("");
   const [response, setResponse] = useState(null);
 
-  const [isLoading, setIsLoading] = useState(false); // generation
-  const [isConverting, setIsConverting] = useState(false); // DOCX → PDF
+  const [isLoading, setIsLoading] = useState(false);
+  const [isConverting, setIsConverting] = useState(false);
 
   const [err, setErr] = useState("");
   const [expanded, setExpanded] = useState({});
@@ -25,6 +25,9 @@ export default function FileTestCaseGen() {
   const [isDocx, setIsDocx] = useState(false);
 
   const fileInputRef = useRef(null);
+
+  // 🔒 Tracks latest request
+  const requestIdRef = useRef(0);
 
   useEffect(() => {
     if (file) {
@@ -39,7 +42,7 @@ export default function FileTestCaseGen() {
       const reader = new FileReader();
       reader.readAsDataURL(file);
       reader.onload = () => resolve(reader.result.split(",")[1]);
-      reader.onerror = (error) => reject(error);
+      reader.onerror = reject;
     });
 
   const convertDocxToPdf = async (docxFile) => {
@@ -49,8 +52,9 @@ export default function FileTestCaseGen() {
     const pdfDoc = await PDFDocument.create();
     const page = pdfDoc.addPage();
     const { height } = page.getSize();
-    const fontSize = 12;
+
     let y = height - 40;
+    const fontSize = 12;
 
     text.split("\n").forEach((line) => {
       page.drawText(line, {
@@ -63,6 +67,7 @@ export default function FileTestCaseGen() {
     });
 
     const pdfBytes = await pdfDoc.save();
+
     return new File(
       [pdfBytes],
       docxFile.name.replace(/\.docx$/i, ".pdf"),
@@ -72,16 +77,23 @@ export default function FileTestCaseGen() {
 
   const handleFileChange = async (e) => {
     const f = e.target.files?.[0];
+
+    // 🔥 Invalidate any running request
+    requestIdRef.current++;
+    controller?.abort();
+
     setResponse(null);
     setErr("");
     setIsDocx(false);
+    setController(null);
+    setIsLoading(false);
 
-    if (!f) return setFile(null);
+    if (!f) {
+      setFile(null);
+      return;
+    }
 
-    if (
-      !f.name.toLowerCase().endsWith(".pdf") &&
-      !f.name.toLowerCase().endsWith(".docx")
-    ) {
+    if (!f.name.match(/\.(pdf|docx)$/i)) {
       setErr("Only PDF or DOCX files are allowed.");
       e.target.value = "";
       return;
@@ -107,16 +119,24 @@ export default function FileTestCaseGen() {
   };
 
   const handleGenerate = async () => {
+    if (!file) {
+      setErr("Please upload a PDF or DOCX first.");
+      return;
+    }
+
     setErr("");
     setResponse(null);
-    if (!file) return setErr("Please upload a PDF or DOCX first.");
-
-    const newController = new AbortController();
-    setController(newController);
     setIsLoading(true);
+
+    const requestId = ++requestIdRef.current;
+    const abortController = new AbortController();
+    setController(abortController);
 
     try {
       const base64 = await toBase64(file);
+
+      if (requestId !== requestIdRef.current) return;
+
       const { data, error } = await supabase.functions.invoke(
         "file-test-gen",
         {
@@ -125,33 +145,37 @@ export default function FileTestCaseGen() {
             fileContent: base64,
             model,
           },
-          signal: newController.signal,
+          signal: abortController.signal,
         }
       );
 
+      if (requestId !== requestIdRef.current) return;
       if (error) throw new Error(error.message);
+
       setResponse(data);
     } catch (e) {
-      if (e.name === "AbortError") {
-        setErr("Generation stopped by user.");
-      } else {
+      if (e.name !== "AbortError") {
         setErr(e.message || "Failed to generate test cases.");
       }
     } finally {
-      setIsLoading(false);
-      setController(null);
+      if (requestId === requestIdRef.current) {
+        setIsLoading(false);
+        setController(null);
+      }
     }
   };
 
   const handleStop = () => {
-    if (controller) {
-      controller.abort();
-      setController(null);
-      setIsLoading(false);
-    }
+    requestIdRef.current++;
+    controller?.abort();
+    setController(null);
+    setIsLoading(false);
   };
 
   const handleClear = () => {
+    requestIdRef.current++;
+    controller?.abort();
+
     setFile(null);
     setFileUrl(null);
     setFileName("");
@@ -160,6 +184,8 @@ export default function FileTestCaseGen() {
     setExpanded({});
     setController(null);
     setIsDocx(false);
+    setIsLoading(false);
+
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
@@ -184,6 +210,7 @@ export default function FileTestCaseGen() {
     const ws = XLSX.utils.json_to_sheet(rows);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "TestCases");
+
     XLSX.writeFile(
       wb,
       `${fileName.replace(/\.pdf$/i, "")}_TestCases.xlsx`
@@ -193,6 +220,7 @@ export default function FileTestCaseGen() {
   const toggleExpand = (id) => {
     setExpanded((prev) => ({ ...prev, [id]: !prev[id] }));
   };
+
 
   return (
     <div className="min-h-screen w-full bg-gray-900 text-gray-100">
