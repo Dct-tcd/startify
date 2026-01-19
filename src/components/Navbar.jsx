@@ -16,7 +16,7 @@ export default function Navbar({ onToggleSidebar }) {
 
           {/* Logo */}
           <div className="font-bold text-lg tracking-tight text-gray-100">
-            DEVRI-AI
+            TestIQ
           </div>
         </div>
 
