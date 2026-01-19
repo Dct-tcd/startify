@@ -19,7 +19,7 @@ export default function HomePage() {
   return (
     <>
       <div className="mb-2">
-        <h1 className="text-gray-100">DEVRI-AI Dashboard</h1>
+        <h1 className="text-gray-100">TestIQ Dashboard</h1>
         <p className="mt-2 text-gray-400">
           Pick a tool to start. You can collapse the sidebar on mobile with the menu button.
         </p>
