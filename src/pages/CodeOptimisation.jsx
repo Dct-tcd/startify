@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { createClient } from "@supabase/supabase-js";
 import Editor from "@monaco-editor/react";
+import { savePromptHistory } from "../lib/promptHistoryService";
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
@@ -40,8 +41,6 @@ export default function CodeOptimizer() {
 
       setResult(data);
 
-      // Save to local prompt history (optional)
-      const history = JSON.parse(localStorage.getItem("promptHistory") || "[]");
       const newEntry = {
         id: Date.now(),
         type: "Code Optimization",
@@ -49,7 +48,8 @@ export default function CodeOptimizer() {
         output: data?.optimizedCode || "",
         timestamp: new Date().toLocaleString(),
       };
-      localStorage.setItem("promptHistory", JSON.stringify([newEntry, ...history]));
+
+      savePromptHistory(newEntry);
     } catch (e) {
       setErr(e.message || "Something went wrong");
     } finally {
