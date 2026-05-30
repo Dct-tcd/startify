@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { createClient } from "@supabase/supabase-js";
 import Editor from "@monaco-editor/react";
+import { savePromptHistory } from "../lib/promptHistoryService";
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
@@ -39,6 +40,13 @@ export default function BugFixer() {
 
       if (error) throw error;
       setResult(data);
+      savePromptHistory({
+        id: Date.now(),
+        type: "Bug Fixer",
+        input: inputCode,
+        output: data?.fixedCode || data?.summary || JSON.stringify(data),
+        timestamp: new Date().toLocaleString(),
+      });
     } catch (e) {
       setErr(e.message || "Something went wrong");
     } finally {

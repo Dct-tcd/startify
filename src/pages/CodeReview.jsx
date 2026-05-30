@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { createClient } from "@supabase/supabase-js";
 import Editor from "@monaco-editor/react";
+import { savePromptHistory } from "../lib/promptHistoryService";
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
@@ -39,6 +40,13 @@ export default function CodeReview() {
 
       if (error) throw error;
       setReview(data);
+      savePromptHistory({
+        id: Date.now(),
+        type: "Code Review",
+        input: inputCode,
+        output: JSON.stringify(data, null, 2),
+        timestamp: new Date().toLocaleString(),
+      });
     } catch (e) {
       setErr(e.message || "Something went wrong");
     } finally {

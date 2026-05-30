@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { createClient } from "@supabase/supabase-js";
 import * as XLSX from "xlsx";
+import { savePromptHistory } from "../lib/promptHistoryService";
 import { ChevronDown, ChevronUp } from "lucide-react";
 import mammoth from "mammoth";
 import { PDFDocument, rgb } from "pdf-lib";
@@ -153,6 +154,13 @@ export default function FileTestCaseGen() {
       if (error) throw new Error(error.message);
 
       setResponse(data);
+      savePromptHistory({
+        id: Date.now(),
+        type: "File Test Case Generator",
+        input: file.name,
+        output: JSON.stringify(data, null, 2),
+        timestamp: new Date().toLocaleString(),
+      });
     } catch (e) {
       if (e.name !== "AbortError") {
         setErr(e.message || "Failed to generate test cases.");

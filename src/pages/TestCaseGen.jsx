@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { createClient } from "@supabase/supabase-js";
 import Editor from "@monaco-editor/react";
+import { savePromptHistory } from "../lib/promptHistoryService";
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
